@@ -86,10 +86,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       setState(() => _countdown = countdown);
     });
 
-    _tremorService.scoreStream.listen((score) async {
-      setState(() => _lastScore = score);
-      await _tremorService.saveMeasurement(score);
-      await _loadMeasurements();
+    _tremorService.scoreStream.listen((score) {
+      if (score == -1) {
+        // -1 indica erro de sensor (nenhum dado recebido)
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
+              ),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+        setState(() {
+          _lastScore = 0; // Reseta para 0 visualmente
+        });
+      } else {
+        setState(() {
+          _lastScore = score;
+        });
+        _tremorService.saveMeasurement(score);
+        _loadMeasurements();
+        // Não mostra diálogo aqui, apenas atualiza UI
+      }
     });
   }
 

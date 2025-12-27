@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,16 +14,11 @@ const _kSampleInterval = Duration(milliseconds: 20);
 const _kMaxExpectedMagnitude = 15.0;
 
 class TremorService {
-  StreamSubscription<AccelerometerEvent>? _subscription;
+  StreamSubscription<UserAccelerometerEvent>? _subscription;
   Timer? _timer;
 
   final List<double> _magnitudes = [];
-
-  double _lastX = 0;
-  double _lastY = 0;
-  double _lastZ = 0;
-
-  final _alpha = 0.8;
+  bool _hasReceivedData = false;
 
   final _scoreController = StreamController<int>.broadcast();
   final _countdownController = StreamController<int>.broadcast();
@@ -39,11 +35,9 @@ class TremorService {
     if (_isRunning) return;
 
     _isRunning = true;
+    _hasReceivedData = false;
     _isRunningController.add(true);
     _magnitudes.clear();
-    _lastX = 0;
-    _lastY = 0;
-    _lastZ = 0;
 
     int remainingSeconds = _kMeasurementDuration.inSeconds;
     _countdownController.add(remainingSeconds);
@@ -57,22 +51,30 @@ class TremorService {
       }
     });
 
-    _subscription = accelerometerEventStream(
-      samplingPeriod: _kSampleInterval,
-    ).listen(_processAccelerometerEvent);
+    try {
+      // Usamos userAccelerometerEventStream que já remove a gravidade (filtro de hardware/fusão)
+      // É mais preciso e performático que o filtro manual anterior.
+      _subscription =
+          userAccelerometerEventStream(samplingPeriod: _kSampleInterval).listen(
+            _processAccelerometerEvent,
+            onError: (e) {
+              debugPrint('Erro no acelerômetro: $e');
+              _finishMeasurement(); // Encerra se houver erro no stream
+            },
+            cancelOnError: true,
+          );
+    } catch (e) {
+      debugPrint('Erro ao iniciar stream: $e');
+      _finishMeasurement();
+    }
   }
 
-  void _processAccelerometerEvent(AccelerometerEvent event) {
-    _lastX = _alpha * _lastX + (1 - _alpha) * event.x;
-    _lastY = _alpha * _lastY + (1 - _alpha) * event.y;
-    _lastZ = _alpha * _lastZ + (1 - _alpha) * event.z;
+  void _processAccelerometerEvent(UserAccelerometerEvent event) {
+    _hasReceivedData = true;
 
-    final highPassX = event.x - _lastX;
-    final highPassY = event.y - _lastY;
-    final highPassZ = event.z - _lastZ;
-
+    // Como já é UserAccelerometer (sem gravidade), calculamos a magnitude direta
     final magnitude = sqrt(
-      highPassX * highPassX + highPassY * highPassY + highPassZ * highPassZ,
+      event.x * event.x + event.y * event.y + event.z * event.z,
     );
 
     _magnitudes.add(magnitude);
@@ -85,7 +87,12 @@ class TremorService {
     _isRunningController.add(false);
 
     if (_magnitudes.isEmpty) {
-      _scoreController.add(0);
+      // Se não recebeu dados, retorna -1 para indicar erro de sensor
+      if (!_hasReceivedData) {
+        _scoreController.add(-1);
+      } else {
+        _scoreController.add(0);
+      }
       return;
     }
 

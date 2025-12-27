@@ -9,10 +9,10 @@ Future<bool> requestSensorPermission() async {
         html.window,
         'DeviceMotionEvent',
       );
-      final prototype = js_util.getProperty(deviceMotionEvent, 'prototype');
 
+      // requestPermission é um método estático em DeviceMotionEvent
       final permission = await js_util.promiseToFuture(
-        js_util.callMethod(prototype, 'requestPermission', []),
+        js_util.callMethod(deviceMotionEvent, 'requestPermission', []),
       );
       return permission == 'granted';
     }
@@ -30,10 +30,8 @@ bool get needsPermissionRequest {
     );
     if (deviceMotionEvent == null) return false;
 
-    // ignore: unnecessary_non_null_assertion
-    final prototype = js_util.getProperty(deviceMotionEvent, 'prototype');
-
-    return js_util.hasProperty(prototype, 'requestPermission');
+    // requestPermission é um método estático em DeviceMotionEvent
+    return js_util.hasProperty(deviceMotionEvent, 'requestPermission');
   } catch (e) {
     return false;
   }
