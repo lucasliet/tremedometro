@@ -1,0 +1,5 @@
+{
+  "dart.projectSearchDepth": 5,
+  "dart.hotReloadOnSave": "all",
+  "dart.flutterSdkPath": "/usr/lib/flutter"
+}
