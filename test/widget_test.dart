@@ -11,20 +11,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:blueguava/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  testWidgets('BlueGuava smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const BlueGuavaApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Verify that the title is present
+    expect(find.text('BlueGuava'), findsOneWidget);
+    expect(find.text('Medidor de Tremor'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify that the start button is present
+    expect(find.text('Iniciar Medição'), findsOneWidget);
+    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify history empty state
+    expect(find.text('Nenhuma medição ainda'), findsOneWidget);
   });
 }

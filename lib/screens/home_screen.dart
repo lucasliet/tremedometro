@@ -95,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadMeasurements() async {
     final measurements = await _tremorService.loadMeasurements();
+    if (!mounted) return;
     setState(() => _measurements = measurements);
   }
 
@@ -505,9 +506,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           TextButton(
             onPressed: () async {
               await _tremorService.clearHistory();
+              if (!context.mounted) return;
               await _loadMeasurements();
+              if (!context.mounted) return;
               setState(() => _lastScore = null);
-              if (mounted) Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text(
               'Limpar',
