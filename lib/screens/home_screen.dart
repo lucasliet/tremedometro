@@ -13,6 +13,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+  // Flag de Debug para mostrar GuavaPrime (Raw Score)
+  static const bool _showPrime = bool.fromEnvironment('PRIME');
+
   final TremorService _tremorService = TremorService();
 
   List<Measurement> _measurements = [];
@@ -337,6 +340,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     letterSpacing: 2,
                   ),
                 ),
+                if (_showPrime) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'GP: ${(_lastScore! * _tremorService.currentReference).toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.white.withValues(alpha: 0.3),
+                      fontFamily: 'Monospace',
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -479,13 +493,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
-                      child: Text(
-                        blueGuavaScore.toStringAsFixed(1),
-                        style: TextStyle(
-                          color: scoreColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            blueGuavaScore.toStringAsFixed(1),
+                            style: TextStyle(
+                              color: scoreColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                          if (_showPrime)
+                            Text(
+                              measurement.score.toStringAsFixed(0),
+                              style: TextStyle(
+                                color: scoreColor.withValues(alpha: 0.5),
+                                fontSize: 8,
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
