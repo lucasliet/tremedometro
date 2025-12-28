@@ -6,17 +6,20 @@ import '../services/tremor_service.dart';
 import '../utils/web_permission/web_permission.dart'; // [NEW] Import
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final TremorService? tremorServiceOverride;
+
+  const HomeScreen({super.key, this.tremorServiceOverride});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   // Flag de Debug para mostrar GuavaPrime (Raw Score)
   static const bool _showPrime = bool.fromEnvironment('PRIME');
 
-  final TremorService _tremorService = TremorService();
+  late TremorService _tremorService;
 
   List<Measurement> _measurements = [];
   double? _lastScore; // [CHANGE] int -> double
@@ -30,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _tremorService = widget.tremorServiceOverride ?? TremorService();
     _checkPermissions(); // [NEW]
     _loadMeasurements();
     _setupListeners();
@@ -108,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           _lastScore = 0.0; // Reseta para 0 visualmente
         });
       } else {
+        debugPrint('HomeScreen: Score received: $score');
         setState(() {
           _lastScore = score;
         });

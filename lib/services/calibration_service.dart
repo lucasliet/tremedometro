@@ -13,6 +13,10 @@ class CalibrationService {
   // Padrão de referência caso API falhe (GuavaPrime 15 = BlueGuava 1.0)
   static const double kDefaultReference = 15.0;
 
+  final http.Client _client;
+
+  CalibrationService({http.Client? client}) : _client = client ?? http.Client();
+
   // Stream para notificar a UI sobre eventos (sucesso, erro, atualizações)
   final _messageController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageController.stream;
@@ -56,7 +60,7 @@ class CalibrationService {
 
       debugPrint('Fetching from: $uri');
 
-      final response = await http.get(
+      final response = await _client.get(
         uri,
         headers: {'Accept': 'application/json, text/plain, */*'},
       );
@@ -128,7 +132,7 @@ class CalibrationService {
         'value': newAverage.toString(),
       });
 
-      final response = await http.post(
+      final response = await _client.post(
         uri,
         headers: {'Content-Type': 'application/json'},
         body: body,

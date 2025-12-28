@@ -12,6 +12,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:blueguava/main.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('Tremedômetro smoke test', (WidgetTester tester) async {
     // Configura Mock do SharedPreferences
     SharedPreferences.setMockInitialValues({});

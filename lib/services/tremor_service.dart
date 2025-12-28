@@ -13,7 +13,8 @@ const _kMeasurementDuration = Duration(seconds: 5);
 const _kSampleInterval = Duration(milliseconds: 20);
 
 class TremorService {
-  final CalibrationService _calibrationService = CalibrationService();
+  final CalibrationService _calibrationService;
+
   StreamSubscription<dynamic>? _subscription;
   Timer? _timer;
 
@@ -41,7 +42,20 @@ class TremorService {
     defaultValue: false,
   );
 
-  TremorService() {
+  // Factory injetável para stream de acelerômetro do usuário
+  final Stream<UserAccelerometerEvent> Function({Duration samplingPeriod})
+  _userAccelStreamFactory;
+
+  TremorService({
+    CalibrationService? calibrationService,
+    Stream<UserAccelerometerEvent> Function({Duration? samplingPeriod})?
+    userAccelStreamFactory,
+  }) : _calibrationService = calibrationService ?? CalibrationService(),
+       _userAccelStreamFactory =
+           userAccelStreamFactory ??
+           (({Duration? samplingPeriod}) => userAccelerometerEventStream(
+             samplingPeriod: samplingPeriod ?? _kSampleInterval,
+           )) {
     refreshReference();
   }
 
@@ -95,10 +109,9 @@ class TremorService {
             );
       } else {
         // [NATIVE] UserAccelerometer funciona bem (hardware/OS driven)
+        // Usa a factory padrão ou a injetada (Clean DI)
         _subscription =
-            userAccelerometerEventStream(
-              samplingPeriod: _kSampleInterval,
-            ).listen(
+            _userAccelStreamFactory(samplingPeriod: _kSampleInterval).listen(
               _processAccelerometerEvent,
               onError: (e) {
                 debugPrint('Erro no acelerômetro: $e');
