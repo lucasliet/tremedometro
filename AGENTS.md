@@ -66,6 +66,7 @@ Run tests with: `flutter test`
 ## CI/CD Pipelines
 
 - `deploy-web.yml`: Deploys PWA to web hosting (GitHub Pages)
+- `publish-android.yml`: Builda e publica APKs assinados nas releases do GitHub
 
 ## Notas Técnicas Específicas
 
@@ -75,6 +76,43 @@ Run tests with: `flutter test`
 
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
+
+### Android Signing (Assinatura de APK)
+
+**CRÍTICO**: Para permitir atualizações do app sem desinstalar, todos os APKs devem ser assinados com o mesmo certificado.
+
+#### Setup Local
+
+1. Execute o script de geração: `./scripts/generate-keystore.sh`
+2. Isso cria:
+   - `android/app/upload-keystore.jks` (keystore - **NUNCA commite!**)
+   - `android/key.properties` (credenciais - **NUNCA commite!**)
+3. Faça backup da keystore em local seguro (perder = não poder mais atualizar o app)
+4. Build: `flutter build apk --release` (já assina automaticamente)
+
+#### Setup CI/CD (GitHub Actions)
+
+Configure os seguintes **Repository Secrets**:
+- `ANDROID_KEYSTORE_BASE64`: Keystore em base64 (`base64 -w 0 android/app/upload-keystore.jks`)
+- `ANDROID_KEYSTORE_PASSWORD`: Senha do keystore
+- `ANDROID_KEY_PASSWORD`: Senha da key
+- `ANDROID_KEY_ALIAS`: Alias da key (padrão: `upload`)
+
+O workflow `publish-android.yml` usa esses secrets para assinar APKs automaticamente.
+
+#### Detalhes Técnicos
+
+- `android/app/build.gradle.kts` carrega `key.properties` se existir
+- Se `key.properties` não existir, usa debug key (apenas para desenvolvimento)
+- `.gitignore` bloqueia commit de keystores e credenciais
+- Documentação completa: `android/KEYSTORE_SETUP.md`
+
+#### Troubleshooting
+
+- **"App not installed"** ao atualizar = certificado diferente, reinstale com nova keystore consistente
+- **CI/CD falha** = verifique se todos os 4 secrets estão configurados corretamente
+
+---
 
 ## Feature: Auto-Update
 
