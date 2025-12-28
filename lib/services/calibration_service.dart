@@ -49,8 +49,16 @@ class CalibrationService {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final value = double.tryParse(data[0]?['value']?.toString() ?? '');
+        final dynamic data = jsonDecode(response.body);
+        String? valueStr;
+
+        if (data is Map && data.containsKey('found')) {
+          valueStr = data['found']?.toString();
+        } else if (data is Map && data.containsKey('value')) {
+          valueStr = data['value']?.toString();
+        }
+
+        final value = double.tryParse(valueStr ?? '');
 
         if (value != null && value > 0) {
           await _saveToCache(value);
