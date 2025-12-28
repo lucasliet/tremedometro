@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -12,17 +13,18 @@ class CalibrationService {
   // Padrão de referência caso API falhe (GuavaPrime 15 = BlueGuava 1.0)
   static const double kDefaultReference = 15.0;
 
+  // Stream para notificar a UI sobre eventos (sucesso, erro, atualizações)
+  final _messageController = StreamController<String>.broadcast();
+  Stream<String> get messageStream => _messageController.stream;
+
   Future<double> fetchWandersonReference() async {
     double? cachedValue = await _loadFromCache();
 
     // Dispara atualização em background se possível, ou aguarda se não tiver cache
     if (cachedValue != null) {
       // Cache-first: retorna cache e atualiza silenciosamente em background
-      _fetchAndCacheFromApi().then((newValue) {
-        if (newValue != null && newValue != cachedValue) {
-          // Poderíamos notificar via Stream no futuro, por enquanto apenas atualiza cache
-          debugPrint('Referência atualizada em background: $newValue');
-        }
+      _fetchAndCacheFromApi(currentCache: cachedValue).then((newValue) {
+        // O método _fetchAndCacheFromApi já gerencia a notificação se mudar
       });
       return cachedValue;
     } else {
@@ -43,7 +45,7 @@ class CalibrationService {
     return null;
   }
 
-  Future<double?> _fetchAndCacheFromApi() async {
+  Future<double?> _fetchAndCacheFromApi({double? currentCache}) async {
     try {
       final uri = Uri.parse('$_kCalibrationEndpoint/get?key=$_kReferenceKey');
       final response = await http.get(uri);
@@ -54,6 +56,9 @@ class CalibrationService {
 
         if (data is Map && data.containsKey('found')) {
           valueStr = data['found']?.toString();
+        } else if (data is List && data.isNotEmpty) {
+          // Added new parsing condition
+          valueStr = data[0]?['value']?.toString();
         } else if (data is Map && data.containsKey('value')) {
           valueStr = data['value']?.toString();
         }
@@ -62,6 +67,15 @@ class CalibrationService {
 
         if (value != null && value > 0) {
           await _saveToCache(value);
+
+          // Se o valor mudou em relação ao que tínhamos (ou se não tínhamos nada e agora temos)
+          // Notifica o usuário. Evita spam se for igual.
+          if (currentCache != null && (value - currentCache).abs() > 0.1) {
+            _messageController.add(
+              'Calibração atualizada: ${value.toStringAsFixed(1)}',
+            );
+          }
+
           return value;
         }
       } else {
@@ -99,9 +113,22 @@ class CalibrationService {
         body: body,
       );
 
-      return response.statusCode == 200 || response.statusCode == 201;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        _messageController.add(
+          'Média atualizada com sucesso! (${newAverage.toStringAsFixed(1)})',
+        );
+        return true;
+      } else {
+        _messageController.add('Falha na API: ${response.statusCode}');
+        return false;
+      }
     } catch (e) {
+      _messageController.add('Erro de conexão: $e');
       return false;
     }
+  }
+
+  void dispose() {
+    _messageController.close();
   }
 }

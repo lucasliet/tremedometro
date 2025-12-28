@@ -30,6 +30,7 @@ class TremorService {
   Stream<int> get countdownStream => _countdownController.stream;
   Stream<bool> get isRunningStream => _isRunningController.stream;
   double get currentReference => _currentReference;
+  Stream<String> get messageStream => _calibrationService.messageStream;
 
   bool _isRunning = false;
   bool get isRunning => _isRunning;
@@ -149,7 +150,9 @@ class TremorService {
 
     // Calcula nova referência (média das 4 últimas)
     double sum = 0;
-    for (var s in last4) sum += double.parse(s);
+    for (var s in last4) {
+      sum += double.parse(s);
+    }
     double newReference = sum / last4.length;
 
     // Atualiza localmente e na API

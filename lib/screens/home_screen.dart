@@ -116,6 +116,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         // Não mostra diálogo aqui, apenas atualiza UI
       }
     });
+
+    _tremorService.messageStream.listen((message) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: message.contains('Erro') || message.contains('Falha')
+              ? Colors.red
+              : Colors.green,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    });
   }
 
   Future<void> _loadMeasurements() async {
@@ -325,7 +338,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '${_lastScore!.toStringAsFixed(1)}',
+                  _lastScore!.toStringAsFixed(1),
                   style: TextStyle(
                     fontSize: 56,
                     fontWeight: FontWeight.bold,
