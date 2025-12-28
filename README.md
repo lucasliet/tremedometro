@@ -4,7 +4,7 @@ O **Tremedômetro** é um aplicativo Flutter inovador projetado para medir e qua
 
 ### 🌟 Funcionalidades Principais
 
-*   **Escala BlueGuava**: Uma medida de intensidade relativa. O valor **1.0** representa o tremor de referência padrão (calibrado dinamicamente). Valores maiores indicam tremores mais intensos (ex: 2.0 = dobro da referência).
+*   **Escala BlueGuava**: Uma medida de intensidade relativa. O valor **1.0** representa o tremor de referência padrão (calibrado dinamicamente pela tremedeira do Wanderson Lopes). Valores maiores indicam tremores mais intensos (ex: 2.0 = dobro da referência).
 *   **Interface Moderna**: Design escuro (dark mode), feedback visual imediato e histórico de medições.
 *   **Multiplataforma**: Funciona nativamente no **Android** e via navegador (**PWA**), com suporte especial para iOS Safari.
 
@@ -14,7 +14,7 @@ O **Tremedômetro** é um aplicativo Flutter inovador projetado para medir e qua
 
 Baixe a versão mais recente do APK para Android na página de Releases:
 
-[**⬇️ Baixar APK (GitHub Releases)**](https://github.com/lucasliet/blueguava/releases)
+[**⬇️ Baixar APK (GitHub Releases)**](https://github.com/lucasliet/tremedometro/releases/latest)
 
 ---
 
