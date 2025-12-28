@@ -119,6 +119,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _tremorService.messageStream.listen((message) {
       if (!mounted) return;
+      debugPrint('HomeScreen recebeu mensagem: $message');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(message),
@@ -142,6 +143,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _pulseController.dispose();
     _tremorService.dispose();
     super.dispose();
+  }
+
+  // Hot Reload triggers reassemble
+  @override
+  void reassemble() {
+    super.reassemble();
+    _tremorService.refreshReference();
   }
 
   // Ajuste nas cores para nova escala relativa (1.0 = Referência/Normal para Wanderson)

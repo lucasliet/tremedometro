@@ -5,7 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-const _kCalibrationEndpoint = 'https://keyvaluedb.deno.dev';
+const _kApiAuthority = 'keyvaluedb.deno.dev';
 const _kReferenceKey = 'blueguava_v1_ref';
 const _kLocalCacheKey = 'blueguava_v1_ref_cache';
 
@@ -16,6 +16,10 @@ class CalibrationService {
   // Stream para notificar a UI sobre eventos (sucesso, erro, atualizações)
   final _messageController = StreamController<String>.broadcast();
   Stream<String> get messageStream => _messageController.stream;
+
+  // Stream dedicada para atualização silenciosa de valor
+  final _referenceController = StreamController<double>.broadcast();
+  Stream<double> get referenceUpdateStream => _referenceController.stream;
 
   Future<double> fetchWandersonReference() async {
     double? cachedValue = await _loadFromCache();
@@ -47,8 +51,15 @@ class CalibrationService {
 
   Future<double?> _fetchAndCacheFromApi({double? currentCache}) async {
     try {
-      final uri = Uri.parse('$_kCalibrationEndpoint/get?key=$_kReferenceKey');
-      final response = await http.get(uri);
+      // Usando construtor seguro Uri.https para evitar problemas de parsing
+      final uri = Uri.https(_kApiAuthority, '/get', {'key': _kReferenceKey});
+
+      debugPrint('Fetching from: $uri');
+
+      final response = await http.get(
+        uri,
+        headers: {'Accept': 'application/json, text/plain, */*'},
+      );
 
       if (response.statusCode == 200) {
         final dynamic data = jsonDecode(response.body);
@@ -68,13 +79,23 @@ class CalibrationService {
         if (value != null && value > 0) {
           await _saveToCache(value);
 
+          debugPrint(
+            'CACHE: $currentCache | API: $value | Diff: ${currentCache != null ? (value - currentCache).abs() : "N/A"}',
+          );
+
           // Se o valor mudou em relação ao que tínhamos (ou se não tínhamos nada e agora temos)
           // Notifica o usuário. Evita spam se for igual.
           if (currentCache != null && (value - currentCache).abs() > 0.1) {
+            debugPrint('Diferença detectada! Enviando notificação...');
             _messageController.add(
               'Calibração atualizada: ${value.toStringAsFixed(1)}',
             );
+          } else {
+            debugPrint('Nenhuma mudança significativa ou cache inicial vazio.');
           }
+
+          // Sempre notifica quem estiver ouvindo (TremorService) para atualizar variável interna
+          _referenceController.add(value);
 
           return value;
         }
@@ -101,7 +122,7 @@ class CalibrationService {
     await _saveToCache(newAverage);
 
     try {
-      final uri = Uri.parse('$_kCalibrationEndpoint/set');
+      final uri = Uri.https(_kApiAuthority, '/set');
       final body = jsonEncode({
         'keys': [_kReferenceKey],
         'value': newAverage.toString(),
@@ -130,5 +151,6 @@ class CalibrationService {
 
   void dispose() {
     _messageController.close();
+    _referenceController.close();
   }
 }

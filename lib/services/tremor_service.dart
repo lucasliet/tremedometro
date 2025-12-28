@@ -14,7 +14,7 @@ const _kSampleInterval = Duration(milliseconds: 20);
 
 class TremorService {
   final CalibrationService _calibrationService = CalibrationService();
-  StreamSubscription<UserAccelerometerEvent>? _subscription;
+  StreamSubscription<dynamic>? _subscription;
   Timer? _timer;
 
   final List<double> _magnitudes = [];
@@ -42,14 +42,22 @@ class TremorService {
   );
 
   TremorService() {
-    _init();
+    refreshReference();
   }
 
-  Future<void> _init() async {
+  Future<void> refreshReference() async {
     _currentReference = await _calibrationService.fetchWandersonReference();
     debugPrint(
-      'Referência inicial carregada: $_currentReference (Wanderboy Mode: $isWanderboy)',
+      'Referência atualizada: $_currentReference (Wanderboy Mode: $isWanderboy)',
     );
+
+    // Ouve atualizações futuras que podem vir do background fetch
+    _calibrationService.referenceUpdateStream.listen((newRef) {
+      debugPrint(
+        'TremorService: Recebido update silencioso de referência: $newRef',
+      );
+      _currentReference = newRef;
+    });
   }
 
   void startMeasurement() {
@@ -73,19 +81,64 @@ class TremorService {
     });
 
     try {
-      _subscription =
-          userAccelerometerEventStream(samplingPeriod: _kSampleInterval).listen(
-            _processAccelerometerEvent,
-            onError: (e) {
-              debugPrint('Erro no acelerômetro: $e');
-              _finishMeasurement();
-            },
-            cancelOnError: true,
-          );
+      if (kIsWeb) {
+        // [WEB FIXED] UserAccelerometer é instável na web.
+        // Usamos Acelerômetro bruto + Filtro Passa-Alta manual.
+        _subscription =
+            accelerometerEventStream(samplingPeriod: _kSampleInterval).listen(
+              _processWebAccelerometerEvent,
+              onError: (e) {
+                debugPrint('Erro no acelerômetro Web: $e');
+                _finishMeasurement();
+              },
+              cancelOnError: true,
+            );
+      } else {
+        // [NATIVE] UserAccelerometer funciona bem (hardware/OS driven)
+        _subscription =
+            userAccelerometerEventStream(
+              samplingPeriod: _kSampleInterval,
+            ).listen(
+              _processAccelerometerEvent,
+              onError: (e) {
+                debugPrint('Erro no acelerômetro: $e');
+                _finishMeasurement();
+              },
+              cancelOnError: true,
+            );
+      }
     } catch (e) {
       debugPrint('Erro ao iniciar stream: $e');
       _finishMeasurement();
     }
+  }
+
+  // Filtro Passa-Alta para remover gravidade (Alpha ~0.8 para 20ms sample)
+  // gravity = alpha * gravity + (1 - alpha) * event
+  // linear_accel = event - gravity
+  double _gravityX = 0;
+  double _gravityY = 0;
+  double _gravityZ = 0;
+  static const double _alpha = 0.8;
+
+  void _processWebAccelerometerEvent(AccelerometerEvent event) {
+    _hasReceivedData = true;
+
+    // Isola a gravidade
+    _gravityX = _alpha * _gravityX + (1 - _alpha) * event.x;
+    _gravityY = _alpha * _gravityY + (1 - _alpha) * event.y;
+    _gravityZ = _alpha * _gravityZ + (1 - _alpha) * event.z;
+
+    // Remove a gravidade para obter a aceleração linear (movimento do usuário)
+    final linearX = event.x - _gravityX;
+    final linearY = event.y - _gravityY;
+    final linearZ = event.z - _gravityZ;
+
+    final magnitude = sqrt(
+      linearX * linearX + linearY * linearY + linearZ * linearZ,
+    );
+
+    _magnitudes.add(magnitude);
   }
 
   void _processAccelerometerEvent(UserAccelerometerEvent event) {
