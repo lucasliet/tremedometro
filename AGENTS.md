@@ -76,6 +76,46 @@ Run tests with: `flutter test`
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
 
+## Feature: Auto-Update
+
+Sistema de atualização automática que verifica novas versões do app ao abrir.
+
+### Funcionamento
+
+1. **Verificação**: Ao iniciar o app, o `AutoUpdateService` consulta a API do GitHub (`/repos/lucasliet/tremedometro/releases/latest`).
+2. **Comparação**: Compara a versão remota com a versão local do app (do `pubspec.yaml` via `package_info_plus`).
+3. **Notificação**: Se houver nova versão, exibe um dialog com:
+   - Número da versão nova
+   - Changelog da release
+   - Botões "Agora não" e "Atualizar"
+4. **Download**: Ao clicar em "Atualizar", abre o link de download do APK (Android) ou página de release no navegador.
+
+### Intervalo de Verificação
+
+- **Padrão**: 24 horas entre verificações
+- **Cache**: Usa `SharedPreferences` para armazenar data da última verificação
+- **Skip**: Se verificou recentemente (< 24h), não consulta a API
+
+### Plataformas
+
+- **Android**: ✅ Abre download direto do APK
+- **iOS**: ✅ Abre página de release
+- **Web**: ⏭️ Auto-update desabilitado (PWAs atualizam automaticamente pelo navegador)
+
+### Testes
+
+- Testes unitários em `test/services/auto_update_service_test.dart`
+- Usa `mockito` para mockar requisições HTTP
+- Cobertura: parsing de versões, comparação, detecção de APK, cache
+
+### Dependências
+
+- `package_info_plus`: Obter versão atual do app
+- `url_launcher`: Abrir links de download
+- `http`: Requisições à API do GitHub
+
+---
+
 ## Feature: Calibração Dinâmica (Wanderboy)
 
 Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada em um usuário admin (Wanderboy).
@@ -117,4 +157,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-27*
+*Last Updated: 2025-12-28*

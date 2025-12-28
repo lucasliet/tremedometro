@@ -39,6 +39,8 @@ dependencies:
   universal_html: ^2.3.0
   http: ^1.6.0
   web: ^1.1.1
+  url_launcher: ^6.3.1
+  package_info_plus: ^8.1.2
 
 dev_dependencies:
   flutter_test:
@@ -51,6 +53,8 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  mockito: ^5.4.4
+  build_runner: ^2.4.14
 
 flutter_launcher_icons:
   android: "launcher_icon"
