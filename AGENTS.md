@@ -106,6 +106,15 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
     1. Carrega referência do disco (rápido).
     2. Busca atualização na API em background.
     3. Se houver novidade, atualiza cache e UI silenciosamente.
+4. **Sincronização em Tempo Real**:
+    - O `CalibrationService` expõe um `referenceUpdateStream`.
+    - O `TremorService` escuta esse stream e atualiza sua variável interna `_currentReference` instantaneamente.
+    - Isso garante que, se a API atualizar o valor em background (ou via Hot Reload), a próxima medição já use o valor novo sem reiniciar o app.
+    - Hot Reload (`r`) força uma chamada a `refreshReference()`.
+
+### Feedback Visual
+- O app exibe um `SnackBar` sempre que a referência é atualizada e difere da anterior (delta > 0.1).
+- Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
 *Last Updated: 2025-12-27*

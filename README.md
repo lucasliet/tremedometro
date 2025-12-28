@@ -1,4 +1,4 @@
-# Tremedômetro (BlueGuava)
+# Tremedômetro
 
 O **Tremedômetro** é um aplicativo Flutter inovador projetado para medir e quantificar tremores usando o acelerômetro do dispositivo. Sua interface moderna e escala objetiva permitem acompanhar a intensidade do tremor de forma simples.
 
