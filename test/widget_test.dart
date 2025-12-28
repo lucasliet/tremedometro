@@ -7,16 +7,21 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:blueguava/main.dart';
 
 void main() {
-  testWidgets('BlueGuava smoke test', (WidgetTester tester) async {
+  testWidgets('Tremedômetro smoke test', (WidgetTester tester) async {
+    // Configura Mock do SharedPreferences
+    SharedPreferences.setMockInitialValues({});
+
     // Build our app and trigger a frame.
     await tester.pumpWidget(const BlueGuavaApp());
+    await tester.pumpAndSettle(); // Aguarda animações e futures iniciais
 
     // Verify that the title is present
-    expect(find.text('BlueGuava'), findsOneWidget);
+    expect(find.text('Tremedômetro'), findsOneWidget);
     expect(find.text('Medidor de Tremor'), findsOneWidget);
 
     // Verify that the start button is present
