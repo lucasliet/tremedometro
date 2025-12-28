@@ -76,5 +76,36 @@ Run tests with: `flutter test`
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
 
+## Feature: Calibração Dinâmica (Wanderboy)
+
+Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada em um usuário admin (Wanderboy).
+
+### Conceitos
+- **GuavaPrime**: Medida "crua" baseada na magnitude do acelerômetro (m/s² * 1000). Esta escala é interna e oculta do usuário final. Vai de 0 a Infinito.
+- **BlueGuava**: Escala final exibida na UI. `BlueGuava = GuavaPrime / Referência`.
+- **Referência ("O padrão BlueGuava 1")**: Valor de GuavaPrime que equivale a **1.0 BlueGuava**.
+    - **Dinâmico**: É a média das últimas 4 medições do usuário Admin (Wanderboy).
+    - **Fallback**: Se a API falhar, usa o valor **15.0** (GuavaPrime) como referência padrão.
+
+### Build Flags
+- **Admin**: `flutter run --dart-define=WANDERBOY=true`
+  - Habilita cálculo de média móvel e envio (POST) para API.
+- **User (Padrão)**: `flutter run`
+  - Apenas lê (GET) a referência da API.
+
+### Arquitetura de Calibração
+1. App inicia -> Tenta buscar referência na API (`keyvaluedb.deno.dev`).
+2. Se falhar -> Usa fallback (15).
+3. **Modo Admin**: Ao finalizar medição, calcula nova média e atualiza API.
+4. **Modo User**: Usa referência cacheada para calcular score exibido.
+
+### Estratégia de Dados e Cache
+- **Persistência**: O banco de dados local armazena o **GuavaPrime** (valor bruto).
+- **Exibição Dinâmica**: A UI converte `GuavaPrime -> BlueGuava` em tempo real usando a referência atual. Isso permite que o histórico seja re-calibrado retroativamente.
+- **Cache de API**: Usa estratégia *stale-while-revalidate*.
+    1. Carrega referência do disco (rápido).
+    2. Busca atualização na API em background.
+    3. Se houver novidade, atualiza cache e UI silenciosamente.
+
 ---
 *Last Updated: 2025-12-27*

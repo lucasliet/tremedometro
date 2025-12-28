@@ -1,14 +1,12 @@
-# BlueGuava Tremor App
+# Tremedômetro (BlueGuava)
 
-O **BlueGuava** é um aplicativo Flutter inovador projetado para medir e quantificar tremores usando o acelerômetro do dispositivo. Ele oferece uma interface simples e moderna para realizar medições rápidas, calcular uma pontuação objetiva e acompanhar o histórico ao longo do tempo.
+O **Tremedômetro** é um aplicativo Flutter inovador projetado para medir e quantificar tremores usando o acelerômetro do dispositivo. Sua interface moderna e escala objetiva permitem acompanhar a intensidade do tremor de forma simples.
 
 ### 🌟 Funcionalidades Principais
 
-*   **Algoritmo BlueGuava**: Converte dados brutos do acelerômetro em uma pontuação de 0 a 1000, filtrando a gravidade e normalizando a intensidade do movimento.
-*   **Interface Intuitiva**: Design escuro (dark mode), contador regressivo animado e feedback visual por cores.
-*   **Histórico Local**: Armazena automaticamente as últimas medições.
-*   **Multiplataforma**: Funciona nativamente no **Android** e como **Progressive Web App (PWA)** no navegador.
-*   **Suporte iOS Web**: Lógica especializada para solicitar permissões de sensor no iOS Safari.
+*   **Escala BlueGuava**: Uma medida de intensidade relativa. O valor **1.0** representa o tremor de referência padrão (calibrado dinamicamente). Valores maiores indicam tremores mais intensos (ex: 2.0 = dobro da referência).
+*   **Interface Moderna**: Design escuro (dark mode), feedback visual imediato e histórico de medições.
+*   **Multiplataforma**: Funciona nativamente no **Android** e via navegador (**PWA**), com suporte especial para iOS Safari.
 
 ---
 

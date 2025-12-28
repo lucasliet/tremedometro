@@ -16,7 +16,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final TremorService _tremorService = TremorService();
 
   List<Measurement> _measurements = [];
-  int? _lastScore;
+  double? _lastScore; // [CHANGE] int -> double
   int _countdown = 5;
   bool _isRunning = false;
   bool _needsPermission = false; // [NEW]
@@ -73,12 +73,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _setupListeners() {
     _tremorService.isRunningStream.listen((isRunning) {
+      if (!mounted) return;
       setState(() => _isRunning = isRunning);
       if (isRunning) {
         _pulseController.repeat(reverse: true);
       } else {
         _pulseController.stop();
-        _pulseController.reset();
+        _pulseController.stop();
       }
     });
 
@@ -101,13 +102,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
         setState(() {
-          _lastScore = 0; // Reseta para 0 visualmente
+          _lastScore = 0.0; // Reseta para 0 visualmente
         });
       } else {
         setState(() {
           _lastScore = score;
         });
-        _tremorService.saveMeasurement(score);
+        // Service já salva automaticamente ao finalizar medição
         _loadMeasurements();
         // Não mostra diálogo aqui, apenas atualiza UI
       }
@@ -127,19 +128,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
-  Color _getScoreColor(int score) {
-    if (score < 200) return const Color(0xFF4CAF50);
-    if (score < 400) return const Color(0xFF8BC34A);
-    if (score < 600) return const Color(0xFFFFEB3B);
-    if (score < 800) return const Color(0xFFFF9800);
+  // Ajuste nas cores para nova escala relativa (1.0 = Referência/Normal para Wanderson)
+  // Assumindo:
+  // < 0.5: Muito Estável
+  // < 1.0: Estável (dentro da referência)
+  // < 1.5: Moderado
+  // < 2.5: Alto
+  // >= 2.5: Extremo
+  Color _getScoreColor(double score) {
+    if (score < 0.5) return const Color(0xFF4CAF50);
+    if (score < 1.0) return const Color(0xFF8BC34A);
+    if (score < 1.5) return const Color(0xFFFFEB3B);
+    if (score < 2.5) return const Color(0xFFFF9800);
     return const Color(0xFFF44336);
   }
 
-  String _getScoreLabel(int score) {
-    if (score < 200) return 'Muito Estável';
-    if (score < 400) return 'Estável';
-    if (score < 600) return 'Moderado';
-    if (score < 800) return 'Tremor Alto';
+  String _getScoreLabel(double score) {
+    if (score < 0.5) return 'Muito Estável';
+    if (score < 1.0) return 'Estável';
+    if (score < 1.5) return 'Moderado';
+    if (score < 2.5) return 'Tremor Alto';
     return 'Tremor Extremo';
   }
 
@@ -197,7 +205,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'BlueGuava',
+                'Tremedômetro',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
@@ -314,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '$_lastScore',
+                  '${_lastScore!.toStringAsFixed(1)}',
                   style: TextStyle(
                     fontSize: 56,
                     fontWeight: FontWeight.bold,
@@ -446,7 +454,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             itemCount: _measurements.length,
             itemBuilder: (context, index) {
               final measurement = _measurements[index];
-              final scoreColor = _getScoreColor(measurement.score);
+              // O score salvo agora é GuavaPrime (cru).
+              // Precisamos converter para BlueGuava usando a referência ATUAL do serviço.
+              // Isso garante que todo o histórico seja re-calibrado se a referência mudar.
+              final currentRef = _tremorService.currentReference;
+              final blueGuavaScore = currentRef > 0
+                  ? measurement.score / currentRef
+                  : measurement.score; // Fallback seguro
+
+              final scoreColor = _getScoreColor(blueGuavaScore);
 
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
@@ -464,7 +480,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                     child: Center(
                       child: Text(
-                        '${measurement.score}',
+                        blueGuavaScore.toStringAsFixed(1),
                         style: TextStyle(
                           color: scoreColor,
                           fontWeight: FontWeight.bold,
@@ -474,7 +490,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   title: Text(
-                    _getScoreLabel(measurement.score),
+                    _getScoreLabel(blueGuavaScore),
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w500,

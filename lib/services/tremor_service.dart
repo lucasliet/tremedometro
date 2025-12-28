@@ -6,30 +6,50 @@ import 'package:sensors_plus/sensors_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/measurement.dart';
+import 'calibration_service.dart';
 
 const _kMeasurementsKey = 'measurements';
 const _kMeasurementDuration = Duration(seconds: 5);
 const _kSampleInterval = Duration(milliseconds: 20);
 
-const _kMaxExpectedMagnitude = 15.0;
-
 class TremorService {
+  final CalibrationService _calibrationService = CalibrationService();
   StreamSubscription<UserAccelerometerEvent>? _subscription;
   Timer? _timer;
 
   final List<double> _magnitudes = [];
   bool _hasReceivedData = false;
+  double _currentReference = CalibrationService.kDefaultReference;
 
-  final _scoreController = StreamController<int>.broadcast();
+  final _scoreController =
+      StreamController<double>.broadcast(); // Agora double para BlueGuava
   final _countdownController = StreamController<int>.broadcast();
   final _isRunningController = StreamController<bool>.broadcast();
 
-  Stream<int> get scoreStream => _scoreController.stream;
+  Stream<double> get scoreStream => _scoreController.stream;
   Stream<int> get countdownStream => _countdownController.stream;
   Stream<bool> get isRunningStream => _isRunningController.stream;
+  double get currentReference => _currentReference;
 
   bool _isRunning = false;
   bool get isRunning => _isRunning;
+
+  // Flag estática para admin, definida em tempo de compilação
+  static const bool isWanderboy = bool.fromEnvironment(
+    'WANDERBOY',
+    defaultValue: false,
+  );
+
+  TremorService() {
+    _init();
+  }
+
+  Future<void> _init() async {
+    _currentReference = await _calibrationService.fetchWandersonReference();
+    debugPrint(
+      'Referência inicial carregada: $_currentReference (Wanderboy Mode: $isWanderboy)',
+    );
+  }
 
   void startMeasurement() {
     if (_isRunning) return;
@@ -52,14 +72,12 @@ class TremorService {
     });
 
     try {
-      // Usamos userAccelerometerEventStream que já remove a gravidade (filtro de hardware/fusão)
-      // É mais preciso e performático que o filtro manual anterior.
       _subscription =
           userAccelerometerEventStream(samplingPeriod: _kSampleInterval).listen(
             _processAccelerometerEvent,
             onError: (e) {
               debugPrint('Erro no acelerômetro: $e');
-              _finishMeasurement(); // Encerra se houver erro no stream
+              _finishMeasurement();
             },
             cancelOnError: true,
           );
@@ -72,7 +90,7 @@ class TremorService {
   void _processAccelerometerEvent(UserAccelerometerEvent event) {
     _hasReceivedData = true;
 
-    // Como já é UserAccelerometer (sem gravidade), calculamos a magnitude direta
+    // Cálculo da magnitude instântanea (m/s²)
     final magnitude = sqrt(
       event.x * event.x + event.y * event.y + event.z * event.z,
     );
@@ -80,14 +98,13 @@ class TremorService {
     _magnitudes.add(magnitude);
   }
 
-  void _finishMeasurement() {
+  Future<void> _finishMeasurement() async {
     _timer?.cancel();
     _subscription?.cancel();
     _isRunning = false;
     _isRunningController.add(false);
 
     if (_magnitudes.isEmpty) {
-      // Se não recebeu dados, retorna -1 para indicar erro de sensor
       if (!_hasReceivedData) {
         _scoreController.add(-1);
       } else {
@@ -96,13 +113,48 @@ class TremorService {
       return;
     }
 
+    // 1. Calcula GuavaPrime (Média da magnitude bruta * 1000 para escala legível)
+    // Ex: 0.2 m/s² * 1000 = 200 GuavaPrime
+    // Ex: 15.0 m/s² * 1000 = 15000 GuavaPrime
     final avgMagnitude =
         _magnitudes.reduce((a, b) => a + b) / _magnitudes.length;
+    final double guavaPrime = avgMagnitude * 1000;
 
-    int score = ((avgMagnitude / _kMaxExpectedMagnitude) * 1000).round();
-    score = score.clamp(0, 1000);
+    // 2. Lógica Admin (Wanderboy)
+    if (isWanderboy) {
+      await _handleWanderboyLogic(guavaPrime);
+    }
 
-    _scoreController.add(score);
+    // 3. Calcula e exibe BlueGuava imediato
+    // Mas ATENÇÃO: saveMeasurement agora salvará o GuavaPrime
+
+    // O controller ainda emite o BlueGuava para o "Live View" (Gauge)
+    final double blueGuavaScore = guavaPrime / _currentReference;
+    _scoreController.add(blueGuavaScore);
+
+    // Salva o GuavaPrime cru no histórico
+    saveMeasurement(guavaPrime);
+  }
+
+  Future<void> _handleWanderboyLogic(double newGuavaPrime) async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String> last4 = prefs.getStringList('wanderson_last_4') ?? [];
+
+    last4.add(newGuavaPrime.toString());
+    if (last4.length > 4) {
+      last4 = last4.sublist(last4.length - 4);
+    }
+
+    await prefs.setStringList('wanderson_last_4', last4);
+
+    // Calcula nova referência (média das 4 últimas)
+    double sum = 0;
+    for (var s in last4) sum += double.parse(s);
+    double newReference = sum / last4.length;
+
+    // Atualiza localmente e na API
+    _currentReference = newReference;
+    await _calibrationService.updateWandersonReference(newReference);
   }
 
   void stopMeasurement() {
@@ -122,7 +174,7 @@ class TremorService {
     return Measurement.decodeList(jsonString);
   }
 
-  Future<void> saveMeasurement(int score) async {
+  Future<void> saveMeasurement(double score) async {
     final prefs = await SharedPreferences.getInstance();
     final measurements = await loadMeasurements();
 

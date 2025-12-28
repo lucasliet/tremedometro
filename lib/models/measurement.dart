@@ -2,7 +2,7 @@ import 'dart:convert';
 
 class Measurement {
   final String id;
-  final int score;
+  final double score; // [CHANGE] int -> double
   final DateTime timestamp;
 
   Measurement({required this.id, required this.score, required this.timestamp});
@@ -15,7 +15,8 @@ class Measurement {
 
   factory Measurement.fromJson(Map<String, dynamic> json) => Measurement(
     id: json['id'] as String,
-    score: json['score'] as int,
+    score: (json['score'] as num)
+        .toDouble(), // [CHANGE] cast to num then double
     timestamp: DateTime.parse(json['timestamp'] as String),
   );
 
