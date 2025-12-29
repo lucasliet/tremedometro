@@ -17,7 +17,8 @@ lib/
 ├── screens/           # UI screens (e.g., HomeScreen)
 ├── services/          # Business logic (e.g., TremorService)
 ├── utils/             # Utilities & platform helpers
-│   └── web_permission/# Conditional imports for safe Web sensor access
+│   ├── web_permission/# Conditional imports for safe Web sensor permission
+│   └── web_sensor_support/# Web sensor capability detection
 test/                  # Widget and unit tests
 android/               # Android-specific configuration
 web/                   # PWA assets and configuration
@@ -85,8 +86,22 @@ Then run tests with: `flutter test`
 ## Notas Técnicas Específicas
 
 ### Web PWA
-- **Conditional Imports**: O projeto usa `lib/utils/web_permission/` para lidar com `dart:html` e `dart:js_util` de forma segura. **NÃO remova essa estrutura**, pois ela garante que o código compile para mobile sem erros de dependência web.
+- **Conditional Imports**: O projeto usa `lib/utils/web_permission/` e `lib/utils/web_sensor_support/` para lidar com `dart:html` e `dart:js_util` de forma segura. **NÃO remova essa estrutura**, pois ela garante que o código compile para mobile sem erros de dependência web.
 - **Base HREF**: O deploy assume subdiretório `/tremedometro/`. Se for alterado, ajuste `.github/workflows/deploy-web.yml`.
+- **Web Sensor Support**: Sistema de detecção de suporte a sensores (`lib/utils/web_sensor_support/`) verifica:
+  - Contexto seguro (HTTPS ou localhost) - obrigatório para DeviceMotionEvent
+  - Disponibilidade do acelerômetro no navegador
+  - Necessidade de permissão explícita (iOS Safari)
+  - Feedback visual ao usuário quando sensor indisponível
+- **Filtro Passa-Alta Web**: 
+  - O acelerômetro web retorna aceleração total (incluindo gravidade)
+  - TremorService aplica filtro passa-alta (alpha=0.8) para remover gravidade
+  - Filtro é resetado entre medições para evitar contaminação
+  - Primeiros 10 samples (~200ms) são descartados durante warm-up do filtro
+- **Error Handling Web**: 
+  - `cancelOnError: false` para resiliência a erros transientes
+  - Contador de erros com limite de 5 falhas consecutivas
+  - Apenas finaliza medição após múltiplos erros
 
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
