@@ -80,7 +80,10 @@ class _HomeScreenState extends State<HomeScreen>
         _needsPermission = false;
         _webSensorStatus = WebSensorStatus.supported;
       });
-      _tremorService.startMeasurement();
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (mounted) {
+        _tremorService.startMeasurement();
+      }
     } else {
       setState(() {
         _webSensorStatus = WebSensorStatus.permissionDenied;
@@ -468,25 +471,41 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tremedômetro',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tremedômetro',
+                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      Text(
+                        'Medidor de Tremor',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Text(
-                'Medidor de Tremor',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.white60),
-              ),
-            ],
+                IconButton(
+                  icon: Icon(
+                    Icons.info_outline,
+                    color: const Color(0xFF6B4EFF).withValues(alpha: 0.7),
+                    size: 24,
+                  ),
+                  onPressed: _showInfoDialog,
+                  tooltip: 'Sobre a escala BlueGuava',
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
           if (_measurements.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.white54),
@@ -821,6 +840,152 @@ class _HomeScreenState extends State<HomeScreen>
     if (diff.inDays < 7) return 'Há ${diff.inDays} dias';
 
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  void _showInfoDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a2e),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6B4EFF).withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.analytics_outlined,
+                color: Color(0xFF6B4EFF),
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'Escala BlueGuava',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF6B4EFF).withValues(alpha: 0.1),
+                      const Color(0xFF6B4EFF).withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF6B4EFF).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'O que é?',
+                      style: TextStyle(
+                        color: Color(0xFF6B4EFF),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'A escala BlueGuava mede a intensidade do tremor em tempo real usando o acelerômetro do dispositivo.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF2196F3).withValues(alpha: 0.1),
+                      const Color(0xFF2196F3).withValues(alpha: 0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFF2196F3).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.person,
+                          color: Color(0xFF2196F3),
+                          size: 20,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Referência',
+                          style: TextStyle(
+                            color: Color(0xFF2196F3),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'A escala é calibrada usando como referência (1.0 BlueGuava) o tremor médio de Wanderson Lopes.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Valores acima de 1.0 indicam tremor maior que a referência, enquanto valores abaixo indicam tremor menor.',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF6B4EFF),
+            ),
+            child: const Text('Entendi'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showClearHistoryDialog() {

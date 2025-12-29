@@ -139,17 +139,20 @@ class TremorService {
     }
   }
 
-  // Filtro Passa-Alta para remover gravidade (Alpha ~0.8 para 20ms sample)
+  // Filtro Passa-Alta para remover gravidade
   // gravity = alpha * gravity + (1 - alpha) * event
   // linear_accel = event - gravity
+  // Alpha mais alto = filtro mais lento = remove mais gravidade
+  // mas pode não convergir rápido o suficiente se houver rotação
   double _gravityX = 0;
   double _gravityY = 0;
   double _gravityZ = 0;
-  static const double _alpha = 0.8;
-  
+  static const double _alpha = 0.92;
+
   // Contador para descartar samples durante warm-up do filtro
+  // Aumentado para garantir convergência com alpha mais alto
   int _filterWarmupSamples = 0;
-  static const int _kWarmupSampleCount = 10; // ~200ms em 20ms/sample
+  static const int _kWarmupSampleCount = 50; // ~1000ms em 20ms/sample
   
   // Contador de erros web para tratamento resiliente
   int _webErrorCount = 0;
