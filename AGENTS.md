@@ -2,6 +2,8 @@
 
 Este arquivo serve como guia para agentes de IA que venham a trabalhar neste repositório no futuro.
 
+> **⚠️ Mantenha este arquivo atualizado**: Sempre que fizer mudanças que alterem o contexto geral da aplicação (nova feature, novo serviço, mudança de arquitetura, novo workflow, etc.) ou que invalidem informações aqui documentadas, atualize as seções relevantes.
+
 # Repository Guidelines
 
 A Flutter application that measures tremors using accelerometer data and calculates a "BlueGuava" score (0-1000). Supports Android, iOS, and PWA.
@@ -76,6 +78,7 @@ Then run tests with: `flutter test`
 
 ## CI/CD Pipelines
 
+- `run-tests.yml`: Executa testes, linting e geração de ícones em PRs e pushes para `main`/`develop`
 - `deploy-web.yml`: Deploys PWA to web hosting (GitHub Pages)
 - `publish-android.yml`: Builda e publica APKs assinados nas releases do GitHub
 
