@@ -79,38 +79,12 @@ Run tests with: `flutter test`
 
 ### Android Signing (Assinatura de APK)
 
-**CRÍTICO**: Para permitir atualizações do app sem desinstalar, todos os APKs devem ser assinados com o mesmo certificado.
+APKs são assinados com keystore de release para permitir atualizações sem desinstalar.
 
-#### Setup Local
-
-1. Execute o script de geração: `./scripts/generate-keystore.sh`
-2. Isso cria:
-   - `android/app/upload-keystore.jks` (keystore - **NUNCA commite!**)
-   - `android/key.properties` (credenciais - **NUNCA commite!**)
-3. Faça backup da keystore em local seguro (perder = não poder mais atualizar o app)
-4. Build: `flutter build apk --release` (já assina automaticamente)
-
-#### Setup CI/CD (GitHub Actions)
-
-Configure os seguintes **Repository Secrets**:
-- `ANDROID_KEYSTORE_BASE64`: Keystore em base64 (`base64 -w 0 android/app/upload-keystore.jks`)
-- `ANDROID_KEYSTORE_PASSWORD`: Senha do keystore
-- `ANDROID_KEY_PASSWORD`: Senha da key
-- `ANDROID_KEY_ALIAS`: Alias da key (padrão: `upload`)
-
-O workflow `publish-android.yml` usa esses secrets para assinar APKs automaticamente.
-
-#### Detalhes Técnicos
-
-- `android/app/build.gradle.kts` carrega `key.properties` se existir
-- Se `key.properties` não existir, usa debug key (apenas para desenvolvimento)
-- `.gitignore` bloqueia commit de keystores e credenciais
-- Documentação completa: `android/KEYSTORE_SETUP.md`
-
-#### Troubleshooting
-
-- **"App not installed"** ao atualizar = certificado diferente, reinstale com nova keystore consistente
-- **CI/CD falha** = verifique se todos os 4 secrets estão configurados corretamente
+- **Local**: Keystore em `android/app/upload-keystore.jks` + credenciais em `android/key.properties`
+- **CI/CD**: GitHub Secrets configurados (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`)
+- **Build**: `flutter build apk --release` assina automaticamente
+- **Importante**: Keystore e credenciais estão em `.gitignore` (nunca commitar!)
 
 ---
 
