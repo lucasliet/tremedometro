@@ -5,13 +5,14 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-fun keystoreProperties(): java.util.Properties {
-    val properties = java.util.Properties()
-    val keystoreFile = rootProject.file("key.properties")
-    if (keystoreFile.exists()) {
-        properties.load(keystoreFile.inputStream())
-    }
-    return properties
+import java.util.Properties
+import java.io.FileInputStream
+
+// Load keystore properties from key.properties file
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -36,19 +37,18 @@ android {
         versionName = flutter.versionName
     }
 
-    val keyProps = keystoreProperties()
     signingConfigs {
         create("release") {
-            storeFile = keyProps.getProperty("storeFile")?.let { file("$it") }
-            storePassword = keyProps.getProperty("storePassword")
-            keyAlias = keyProps.getProperty("keyAlias")
-            keyPassword = keyProps.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file("$it") }
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
         }
     }
 
     buildTypes {
         release {
-            signingConfig = if (keyProps.getProperty("storeFile") != null) {
+            signingConfig = if (keystoreProperties.getProperty("storeFile") != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
