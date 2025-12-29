@@ -34,6 +34,9 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      - name: Generate mocks for tests
+        run: dart run build_runner build --delete-conflicting-outputs
+
       - name: Run Analyze
         run: flutter analyze
         continue-on-error: true
