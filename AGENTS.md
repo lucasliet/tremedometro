@@ -93,23 +93,21 @@ Then run tests with: `flutter test`
   - Disponibilidade do acelerômetro no navegador
   - Necessidade de permissão explícita (iOS Safari)
   - Feedback visual ao usuário quando sensor indisponível
-- **Filtro Passa-Alta Web**:
+- **Calibração Web**:
   - O acelerômetro web (`AccelerometerEvent`) retorna aceleração total (incluindo gravidade)
-  - Mobile usa `UserAccelerometerEvent` (remove gravidade via fusão de sensores)
-  - TremorService aplica filtro passa-alta (alpha=0.98, cutoff ~0.16 Hz) para remover gravidade no web
-  - Filtro é resetado entre medições para evitar contaminação
-  - Primeiros 100 samples (~2s) são descartados durante warm-up do filtro para convergência
-  - **Limitação**: Sem acesso ao giroscópio, rotações do dispositivo podem ser contadas como movimento
-  - **Futuro**: Implementar LinearAccelerationSensor API (Chrome/Android only) para remoção nativa da gravidade
+  - Mobile usa `UserAccelerometerEvent` (remove gravidade via fusão de sensores - giroscópio + acelerômetro + magnetômetro)
+  - **Offset Empírico**: PWA Android aplica offset de **-7.0** no resultado final (calibração empírica vs mobile)
+  - **Limitação**: Sem acesso ao giroscópio para fusão de sensores, filtros passa-alta não funcionam adequadamente quando há rotação do dispositivo
+  - **Solução**: Offset fixo baseado em testes práticos entre PWA Android e app nativo
 - **Error Handling Web**:
   - `cancelOnError: false` para resiliência a erros transientes
   - Contador de erros com limite de 5 falhas consecutivas
   - Apenas finaliza medição após múltiplos erros
-- **iOS Safari Known Issues**:
-  - **Bug de Zeros**: iOS 13.4+ pode retornar (0,0,0) mesmo após permissão concedida
-  - Detecção automática: se 100 samples consecutivos forem zeros, finaliza com erro
-  - **Configurações Ocultas**: iOS 18 pode não mostrar "Motion & Orientation" em Settings > Safari
-  - **Workaround**: Usar app nativo em vez do PWA no iOS se sensor não funcionar
+- **iOS Safari - Não Suportado (PWA)**:
+  - **Status**: PWA no iOS Safari está **DESABILITADO** devido a bugs críticos
+  - **Bug Conhecido**: iOS 13.4+ retorna (0,0,0) mesmo após permissão concedida
+  - **Workaround**: Usuários iOS devem usar o **app nativo Android** ou baixar APK pelo GitHub Releases
+  - **Detecção**: App detecta iOS automaticamente e exibe mensagem explicativa bloqueando medição
 
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.

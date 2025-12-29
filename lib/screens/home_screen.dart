@@ -58,13 +58,22 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _checkPermissions() async {
     if (!kIsWeb) return;
-    
+
+    // Detecta iOS e bloqueia PWA (bug conhecido de sensores)
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    if (isIOS) {
+      setState(() {
+        _webSensorStatus = WebSensorStatus.notSupported;
+      });
+      return;
+    }
+
     // Verifica o suporte a sensores no navegador
     final status = await WebSensorSupport.checkAccelerometerSupport();
     setState(() {
       _webSensorStatus = status;
     });
-    
+
     // Se requer permissão (iOS Safari), marca para solicitar
     if (status == WebSensorStatus.requiresPermission) {
       setState(() {
@@ -327,35 +336,38 @@ class _HomeScreenState extends State<HomeScreen>
           ),
         );
       case WebSensorStatus.notSupported:
+        final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.red.withValues(alpha: 0.2),
+            color: Colors.orange.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.red, width: 2),
+            border: Border.all(color: Colors.orange, width: 2),
           ),
           child: Row(
             children: [
-              const Icon(Icons.sensors_off, color: Colors.red, size: 32),
+              const Icon(Icons.phone_iphone, color: Colors.orange, size: 32),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Sensor Indisponível',
-                      style: TextStyle(
-                        color: Colors.red,
+                    Text(
+                      isIOS ? 'iOS Safari Não Suportado' : 'Sensor Indisponível',
+                      style: const TextStyle(
+                        color: Colors.orange,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Seu navegador não suporta acelerômetro',
+                      isIOS
+                          ? 'iOS Safari tem bugs conhecidos com sensores. Use o app nativo Android ou instale pelo GitHub Releases.'
+                          : 'Seu navegador não suporta acelerômetro',
                       style: TextStyle(
-                        color: Colors.red.withValues(alpha: 0.8),
+                        color: Colors.orange.withValues(alpha: 0.8),
                         fontSize: 14,
                       ),
                     ),

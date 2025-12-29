@@ -85,15 +85,7 @@ class TremorService {
     _hasReceivedData = false;
     _isRunningController.add(true);
     _magnitudes.clear();
-    
-    // Reset do filtro passa-alta para nova medição
-    _gravityX = 0;
-    _gravityY = 0;
-    _gravityZ = 0;
-    _filterWarmupSamples = 0;
     _webErrorCount = 0;
-    _webSampleCount = 0;
-    _webZeroSampleCount = 0;
 
     int remainingSeconds = _kMeasurementDuration.inSeconds;
     _countdownController.add(remainingSeconds);
@@ -124,8 +116,6 @@ class TremorService {
               },
               cancelOnError: false,
             );
-
-        _webSampleCount = 0;
       } else {
         _subscription =
             _userAccelStreamFactory(samplingPeriod: _kSampleInterval).listen(
@@ -143,73 +133,20 @@ class TremorService {
     }
   }
 
-  // Filtro Passa-Alta para remover gravidade
-  // gravity = alpha * gravity + (1 - alpha) * event
-  // linear_accel = event - gravity
-  // Alpha mais alto = filtro mais lento = remove mais gravidade
-  // Alpha 0.98 = cutoff ~0.16 Hz (remove quase toda gravidade)
-  double _gravityX = 0;
-  double _gravityY = 0;
-  double _gravityZ = 0;
-  static const double _alpha = 0.98;
+  // Calibração empírica web vs mobile
+  // PWA retorna valores ~7 pontos acima do mobile devido a limitações
+  // da API web (sem acesso a giroscópio para fusão de sensores)
+  static const double _kWebCalibrationOffset = 7.0;
 
-  // Contador para descartar samples durante warm-up do filtro
-  // Com alpha=0.98, precisa de mais tempo para convergir
-  int _filterWarmupSamples = 0;
-  static const int _kWarmupSampleCount = 100; // ~2000ms em 20ms/sample
-  
   // Contador de erros web para tratamento resiliente
   int _webErrorCount = 0;
   static const int _kMaxWebErrors = 5;
 
-  // Contador de samples web e detector de zeros (iOS bug)
-  int _webSampleCount = 0;
-  int _webZeroSampleCount = 0;
-  static const int _kMaxZeroSamples = 100;
-
   void _processWebAccelerometerEvent(AccelerometerEvent event) {
     _hasReceivedData = true;
-    _webSampleCount++;
-
-    // Detecta iOS retornando zeros (bug conhecido)
-    if (event.x == 0 && event.y == 0 && event.z == 0) {
-      _webZeroSampleCount++;
-      debugPrint(
-        'WEB_ACCEL: Recebeu zeros (${_webZeroSampleCount}/${_kMaxZeroSamples})',
-      );
-
-      if (_webZeroSampleCount >= _kMaxZeroSamples) {
-        debugPrint(
-          'WEB_ACCEL: iOS retornando zeros persistentemente. Finalizando.',
-        );
-        _finishMeasurement();
-      }
-      return;
-    }
-
-    // Log primeiro sample não-zero para debug
-    if (_webSampleCount == 1) {
-      debugPrint('WEB_ACCEL: Primeiro sample: x=${event.x.toStringAsFixed(2)}, y=${event.y.toStringAsFixed(2)}, z=${event.z.toStringAsFixed(2)}');
-    }
-
-    // Isola a gravidade
-    _gravityX = _alpha * _gravityX + (1 - _alpha) * event.x;
-    _gravityY = _alpha * _gravityY + (1 - _alpha) * event.y;
-    _gravityZ = _alpha * _gravityZ + (1 - _alpha) * event.z;
-
-    // Descarta primeiros samples durante warm-up do filtro
-    if (_filterWarmupSamples < _kWarmupSampleCount) {
-      _filterWarmupSamples++;
-      return;
-    }
-
-    // Remove a gravidade para obter a aceleração linear (movimento do usuário)
-    final linearX = event.x - _gravityX;
-    final linearY = event.y - _gravityY;
-    final linearZ = event.z - _gravityZ;
 
     final magnitude = sqrt(
-      linearX * linearX + linearY * linearY + linearZ * linearZ,
+      event.x * event.x + event.y * event.y + event.z * event.z,
     );
 
     _magnitudes.add(magnitude);
@@ -246,7 +183,13 @@ class TremorService {
     // Ex: 15.0 m/s² * 1000 = 15000 GuavaPrime
     final avgMagnitude =
         _magnitudes.reduce((a, b) => a + b) / _magnitudes.length;
-    final double guavaPrime = avgMagnitude * 1000;
+    double guavaPrime = avgMagnitude * 1000;
+
+    // Aplica calibração empírica para web (não-iOS)
+    if (kIsWeb) {
+      guavaPrime = (guavaPrime - _kWebCalibrationOffset).clamp(0, double.infinity);
+      debugPrint('WEB_CALIBRATION: Raw=$avgMagnitude, GuavaPrime=$guavaPrime (offset: -$_kWebCalibrationOffset)');
+    }
 
     // 2. Lógica Admin (Wanderboy)
     if (isWanderboy) {
