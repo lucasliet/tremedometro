@@ -295,5 +295,69 @@ void main() {
       expect(result!.downloadUrl, contains('app-release.apk'));
       verify(mockClient.get(any)).called(1);
     });
+
+    test('checkForUpdate deve processar tags do workflow com 2 partes', () async {
+      final responseBody = json.encode({
+        'tag_name': 'v2.1+10',
+        'html_url': 'https://github.com/lucasliet/tremedometro/releases/tag/v2.1+10',
+        'body': 'Release com versão de 2 partes',
+        'assets': [],
+      });
+
+      when(mockClient.get(any)).thenAnswer(
+        (_) async => http.Response(responseBody, 200),
+      );
+
+      final result = await service.checkForUpdate();
+
+      expect(result, isNotNull);
+      expect(result!.version.version, '2.1');
+      expect(result.version.buildNumber, 10);
+      verify(mockClient.get(any)).called(1);
+    });
+
+    test('checkForUpdate deve processar tags do workflow com 1 parte', () async {
+      final responseBody = json.encode({
+        'tag_name': 'v3+5',
+        'html_url': 'https://github.com/lucasliet/tremedometro/releases/tag/v3+5',
+        'body': 'Release com versão de 1 parte',
+        'assets': [],
+      });
+
+      when(mockClient.get(any)).thenAnswer(
+        (_) async => http.Response(responseBody, 200),
+      );
+
+      final result = await service.checkForUpdate();
+
+      expect(result, isNotNull);
+      expect(result!.version.version, '3');
+      expect(result.version.buildNumber, 5);
+      verify(mockClient.get(any)).called(1);
+    });
+
+    test('checkForUpdate deve comparar corretamente versões do workflow', () async {
+      final service = AutoUpdateService(
+        httpClient: mockClient,
+        currentVersion: AppVersion('1.0', 1),
+      );
+
+      final responseBody = json.encode({
+        'tag_name': 'v1.0.1+1',
+        'html_url': 'https://github.com/lucasliet/tremedometro/releases/tag/v1.0.1+1',
+        'body': 'Patch release',
+        'assets': [],
+      });
+
+      when(mockClient.get(any)).thenAnswer(
+        (_) async => http.Response(responseBody, 200),
+      );
+
+      final result = await service.checkForUpdate();
+
+      expect(result, isNotNull);
+      expect(result!.version.version, '1.0.1');
+      verify(mockClient.get(any)).called(1);
+    });
   });
 }
