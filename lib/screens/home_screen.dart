@@ -139,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen>
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 8),
             action: isIOS && kIsWeb
-                ? SnackbarAction(
+                ? SnackBarAction(
                     label: 'Recarregar',
                     textColor: Colors.white,
                     onPressed: () {
