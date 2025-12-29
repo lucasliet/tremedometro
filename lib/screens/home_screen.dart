@@ -5,7 +5,7 @@ import '../models/measurement.dart';
 import '../services/auto_update_service.dart';
 import '../services/tremor_service.dart';
 import '../utils/web_permission/web_permission.dart';
-import 'package:url_launcher/url_launcher.dart'; // [NEW] Import
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   final TremorService? tremorServiceOverride;
@@ -221,13 +221,14 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           ElevatedButton(
             onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
               final url = Uri.parse(releaseInfo.downloadUrl);
               if (await canLaunchUrl(url)) {
                 await launchUrl(url, mode: LaunchMode.externalApplication);
               } else {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  scaffoldMessenger.showSnackBar(
                     const SnackBar(
                       content: Text('Não foi possível abrir o link de download'),
                       backgroundColor: Colors.red,
