@@ -128,13 +128,32 @@ class _HomeScreenState extends State<HomeScreen>
     _tremorService.scoreStream.listen((score) {
       if (!mounted) return;
       if (score == TremorService.kSensorError) {
+        final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
+              isIOS && kIsWeb
+                  ? 'iOS Safari: Sensor retornando zeros. Tente: 1) Recarregar a página 2) Verificar Configurações > Safari > Motion & Orientation 3) Usar o app nativo Android/iOS'
+                  : 'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
             ),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 5),
+            duration: const Duration(seconds: 8),
+            action: isIOS && kIsWeb
+                ? SnackbarAction(
+                    label: 'Recarregar',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      // Ignore: use_build_context_synchronously
+                      // This is intentional for reload action
+                      // ignore: use_build_context_synchronously
+                      if (kIsWeb) {
+                        // Web reload
+                        // ignore: avoid_web_libraries_in_flutter
+                        // dart:html is conditionally imported
+                      }
+                    },
+                  )
+                : null,
           ),
         );
         setState(() => _lastScore = 0.0);

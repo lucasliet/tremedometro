@@ -92,6 +92,8 @@ class TremorService {
     _gravityZ = 0;
     _filterWarmupSamples = 0;
     _webErrorCount = 0;
+    _webSampleCount = 0;
+    _webZeroSampleCount = 0;
 
     int remainingSeconds = _kMeasurementDuration.inSeconds;
     _countdownController.add(remainingSeconds);
@@ -122,6 +124,8 @@ class TremorService {
               },
               cancelOnError: false,
             );
+
+        _webSampleCount = 0;
       } else {
         _subscription =
             _userAccelStreamFactory(samplingPeriod: _kSampleInterval).listen(
@@ -143,29 +147,56 @@ class TremorService {
   // gravity = alpha * gravity + (1 - alpha) * event
   // linear_accel = event - gravity
   // Alpha mais alto = filtro mais lento = remove mais gravidade
-  // mas pode não convergir rápido o suficiente se houver rotação
+  // Alpha 0.98 = cutoff ~0.16 Hz (remove quase toda gravidade)
   double _gravityX = 0;
   double _gravityY = 0;
   double _gravityZ = 0;
-  static const double _alpha = 0.92;
+  static const double _alpha = 0.98;
 
   // Contador para descartar samples durante warm-up do filtro
-  // Aumentado para garantir convergência com alpha mais alto
+  // Com alpha=0.98, precisa de mais tempo para convergir
   int _filterWarmupSamples = 0;
-  static const int _kWarmupSampleCount = 50; // ~1000ms em 20ms/sample
+  static const int _kWarmupSampleCount = 100; // ~2000ms em 20ms/sample
   
   // Contador de erros web para tratamento resiliente
   int _webErrorCount = 0;
   static const int _kMaxWebErrors = 5;
 
+  // Contador de samples web e detector de zeros (iOS bug)
+  int _webSampleCount = 0;
+  int _webZeroSampleCount = 0;
+  static const int _kMaxZeroSamples = 100;
+
   void _processWebAccelerometerEvent(AccelerometerEvent event) {
     _hasReceivedData = true;
+    _webSampleCount++;
+
+    // Detecta iOS retornando zeros (bug conhecido)
+    if (event.x == 0 && event.y == 0 && event.z == 0) {
+      _webZeroSampleCount++;
+      debugPrint(
+        'WEB_ACCEL: Recebeu zeros (${_webZeroSampleCount}/${_kMaxZeroSamples})',
+      );
+
+      if (_webZeroSampleCount >= _kMaxZeroSamples) {
+        debugPrint(
+          'WEB_ACCEL: iOS retornando zeros persistentemente. Finalizando.',
+        );
+        _finishMeasurement();
+      }
+      return;
+    }
+
+    // Log primeiro sample não-zero para debug
+    if (_webSampleCount == 1) {
+      debugPrint('WEB_ACCEL: Primeiro sample: x=${event.x.toStringAsFixed(2)}, y=${event.y.toStringAsFixed(2)}, z=${event.z.toStringAsFixed(2)}');
+    }
 
     // Isola a gravidade
     _gravityX = _alpha * _gravityX + (1 - _alpha) * event.x;
     _gravityY = _alpha * _gravityY + (1 - _alpha) * event.y;
     _gravityZ = _alpha * _gravityZ + (1 - _alpha) * event.z;
-    
+
     // Descarta primeiros samples durante warm-up do filtro
     if (_filterWarmupSamples < _kWarmupSampleCount) {
       _filterWarmupSamples++;
