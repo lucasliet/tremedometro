@@ -1,11 +1,7 @@
 {
   "name": "Flutter",
-  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
-  "features": {
-    "ghcr.io/devcontainers/features/flutter:1": {
-      "version": "latest"
-    }
-  },
+  "image": "ghcr.io/cirruslabs/flutter:3.38.5",
+  "postStartCommand": "sh -lc 'flutter --version && flutter doctor -v || true && flutter pub get && dart --disable-analytics; if command -v sdkmanager >/dev/null 2>&1; then yes | sdkmanager --licenses; fi'",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -13,9 +9,9 @@
         "Dart-Code.flutter"
       ],
       "settings": {
-        "dart.flutterSdkPath": "/usr/local/flutter"
+        "dart.flutterSdkPath": "/sdks/flutter"
       }
     }
   },
-  "remoteUser": "vscode"
+  "remoteUser": "root"
 }
