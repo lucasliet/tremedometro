@@ -13,6 +13,8 @@ const _kMeasurementDuration = Duration(seconds: 5);
 const _kSampleInterval = Duration(milliseconds: 20);
 
 class TremorService {
+  static const double kSensorError = -1;
+
   final CalibrationService _calibrationService;
 
   StreamSubscription<dynamic>? _subscription;
@@ -96,8 +98,6 @@ class TremorService {
 
     try {
       if (kIsWeb) {
-        // [WEB FIXED] UserAccelerometer é instável na web.
-        // Usamos Acelerômetro bruto + Filtro Passa-Alta manual.
         _subscription =
             accelerometerEventStream(samplingPeriod: _kSampleInterval).listen(
               _processWebAccelerometerEvent,
@@ -108,8 +108,6 @@ class TremorService {
               cancelOnError: true,
             );
       } else {
-        // [NATIVE] UserAccelerometer funciona bem (hardware/OS driven)
-        // Usa a factory padrão ou a injetada (Clean DI)
         _subscription =
             _userAccelStreamFactory(samplingPeriod: _kSampleInterval).listen(
               _processAccelerometerEvent,
@@ -173,7 +171,7 @@ class TremorService {
 
     if (_magnitudes.isEmpty) {
       if (!_hasReceivedData) {
-        _scoreController.add(-1);
+        _scoreController.add(kSensorError);
       } else {
         _scoreController.add(0);
       }

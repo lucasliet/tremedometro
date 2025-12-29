@@ -58,7 +58,7 @@ Baixe a versão mais recente do APK para Android na página de Releases:
 
 Durante 5 segundos, o app coleta dados do acelerômetro e calcula a magnitude vetorial de cada amostra:
 
-```
+```text
 magnitude = √(x² + y² + z²)
 ```
 
@@ -66,7 +66,7 @@ Onde x, y, z são as componentes da aceleração linear (em m/s²).
 
 O score final é calculado como:
 
-```
+```text
 Score = média(magnitudes) × 1000
 ```
 

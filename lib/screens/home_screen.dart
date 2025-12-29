@@ -54,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // [NEW]
   Future<void> _checkPermissions() async {
     if (kIsWeb && WebPermissionUtils.needsPermissionRequest) {
       // No iOS Web, precisamos pedir permissão via toque do usuário.
@@ -65,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // [NEW]
   Future<void> _requestPermission() async {
     final granted = await WebPermissionUtils.requestSensorPermission();
     if (granted) {
@@ -100,39 +98,31 @@ class _HomeScreenState extends State<HomeScreen>
         _pulseController.repeat(reverse: true);
       } else {
         _pulseController.stop();
-        _pulseController.stop();
       }
     });
 
     _tremorService.countdownStream.listen((countdown) {
+      if (!mounted) return;
       setState(() => _countdown = countdown);
     });
 
     _tremorService.scoreStream.listen((score) {
-      if (score == -1) {
-        // -1 indica erro de sensor (nenhum dado recebido)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
-              ),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 5),
+      if (!mounted) return;
+      if (score == TremorService.kSensorError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
             ),
-          );
-        }
-        setState(() {
-          _lastScore = 0.0; // Reseta para 0 visualmente
-        });
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _lastScore = 0.0);
       } else {
         debugPrint('HomeScreen: Score received: $score');
-        setState(() {
-          _lastScore = score;
-        });
-        // Service já salva automaticamente ao finalizar medição
+        setState(() => _lastScore = score);
         _loadMeasurements();
-        // Não mostra diálogo aqui, apenas atualiza UI
       }
     });
 

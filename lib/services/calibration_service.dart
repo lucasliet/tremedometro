@@ -48,7 +48,7 @@ class CalibrationService {
       final val = prefs.getDouble(_kLocalCacheKey);
       if (val != null && val > 0) return val;
     } catch (e) {
-      // ignore
+      debugPrint('CalibrationService: Erro ao carregar cache: $e');
     }
     return null;
   }
@@ -117,7 +117,7 @@ class CalibrationService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble(_kLocalCacheKey, value);
     } catch (e) {
-      // ignore
+      debugPrint('CalibrationService: Erro ao salvar cache: $e');
     }
   }
 

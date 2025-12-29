@@ -52,8 +52,19 @@ Run `flutter analyze` before committing to ensure code quality.
 - **Location**: `test/` directory
 - **Naming**: `*_test.dart` suffix
 - **Structure**: Follow AAA pattern (Arrange/Act/Assert)
+- **Mocking**: Uses `mockito` with code generation
 
-Run tests with: `flutter test`
+### Running Tests
+
+Before running tests for the first time (or after changing mocked classes), generate the mock files:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+```
+
+This is required because `mockito` uses code generation to create type-safe mocks. The generated files (`*.mocks.dart`) are gitignored and must be regenerated locally.
+
+Then run tests with: `flutter test`
 
 ## Commit & Pull Request Guidelines
 
