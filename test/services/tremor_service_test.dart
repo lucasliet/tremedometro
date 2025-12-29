@@ -38,7 +38,7 @@ void main() {
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
-      sensorStreamController = StreamController<UserAccelerometerEvent>();
+      sensorStreamController = StreamController<UserAccelerometerEvent>.broadcast();
       fakeCalibration = FakeCalibrationService();
 
       service = TremorService(

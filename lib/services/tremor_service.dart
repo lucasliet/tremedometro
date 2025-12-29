@@ -25,9 +25,11 @@ class TremorService {
   double _currentReference = CalibrationService.kDefaultReference;
 
   final _scoreController =
-      StreamController<double>.broadcast(); // Agora double para BlueGuava
+      StreamController<double>.broadcast();
   final _countdownController = StreamController<int>.broadcast();
   final _isRunningController = StreamController<bool>.broadcast();
+
+  StreamSubscription<double>? _referenceUpdateSubscription;
 
   Stream<double> get scoreStream => _scoreController.stream;
   Stream<int> get countdownStream => _countdownController.stream;
@@ -67,8 +69,8 @@ class TremorService {
       'Referência atualizada: $_currentReference (Wanderboy Mode: $isWanderboy)',
     );
 
-    // Ouve atualizações futuras que podem vir do background fetch
-    _calibrationService.referenceUpdateStream.listen((newRef) {
+    await _referenceUpdateSubscription?.cancel();
+    _referenceUpdateSubscription = _calibrationService.referenceUpdateStream.listen((newRef) {
       debugPrint(
         'TremorService: Recebido update silencioso de referência: $newRef',
       );
@@ -298,6 +300,7 @@ class TremorService {
   void dispose() {
     _timer?.cancel();
     _subscription?.cancel();
+    _referenceUpdateSubscription?.cancel();
     _scoreController.close();
     _countdownController.close();
     _isRunningController.close();

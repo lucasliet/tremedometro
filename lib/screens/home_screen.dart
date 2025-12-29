@@ -430,7 +430,13 @@ class _HomeScreenState extends State<HomeScreen>
           child: Column(
             children: [
               _buildHeader(),
-              if (_buildSensorWarning() != null) _buildSensorWarning()!,
+              if (kIsWeb && _webSensorStatus != null)
+                Builder(
+                  builder: (context) {
+                    final warning = _buildSensorWarning();
+                    return warning ?? const SizedBox.shrink();
+                  },
+                ),
               Expanded(
                 child: _isRunning ? _buildCountdownView() : _buildScoreView(),
               ),
@@ -634,9 +640,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMeasureButton() {
-    // Desabilita botão se sensor não estiver disponível na web
     final bool isSensorUnavailable = kIsWeb &&
-        _webSensorStatus != null &&
         (_webSensorStatus == WebSensorStatus.notSupported ||
             _webSensorStatus == WebSensorStatus.requiresHttps ||
             _webSensorStatus == WebSensorStatus.permissionDenied);
