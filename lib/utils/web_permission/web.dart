@@ -7,6 +7,14 @@ import 'package:web/web.dart' as web;
 
 Future<bool> requestSensorPermission() async {
   try {
+    // Verifica se está em contexto seguro (HTTPS ou localhost)
+    if (!web.window.isSecureContext) {
+      debugPrint(
+        'WEB_PERMISSION: Contexto não seguro. HTTPS é requerido para acelerômetro.',
+      );
+      return false;
+    }
+    
     if (!needsPermissionRequest) return true;
 
     final JSAny? deviceMotionEvent = web.window['DeviceMotionEvent'];

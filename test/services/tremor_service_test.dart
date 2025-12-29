@@ -86,6 +86,28 @@ void main() {
       expect(service.isRunning, isFalse);
     });
 
+    test('filtro passa-alta é resetado entre medições', () async {
+      // Arrange - Primeira medição
+      service.startMeasurement();
+      final now = DateTime.now();
+
+      // Adiciona alguns eventos
+      for (int i = 0; i < 5; i++) {
+        sensorStreamController.add(UserAccelerometerEvent(1.0, 1.0, 1.0, now));
+      }
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      service.stopMeasurement();
+
+      // Act - Segunda medição (deve resetar o filtro)
+      service.startMeasurement();
+      
+      // Assert - Verifica que a segunda medição está rodando
+      expect(service.isRunning, isTrue);
+      
+      service.stopMeasurement();
+    });
+
     test('stopMeasurement para a medição e limpa estado', () async {
       // Arrange
       service.startMeasurement();

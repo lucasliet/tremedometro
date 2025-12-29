@@ -83,6 +83,13 @@ class TremorService {
     _hasReceivedData = false;
     _isRunningController.add(true);
     _magnitudes.clear();
+    
+    // Reset do filtro passa-alta para nova medição
+    _gravityX = 0;
+    _gravityY = 0;
+    _gravityZ = 0;
+    _filterWarmupSamples = 0;
+    _webErrorCount = 0;
 
     int remainingSeconds = _kMeasurementDuration.inSeconds;
     _countdownController.add(remainingSeconds);
@@ -103,9 +110,15 @@ class TremorService {
               _processWebAccelerometerEvent,
               onError: (e) {
                 debugPrint('Erro no acelerômetro Web: $e');
-                _finishMeasurement();
+                _webErrorCount++;
+                if (_webErrorCount >= _kMaxWebErrors) {
+                  debugPrint(
+                    'Limite de erros atingido ($_kMaxWebErrors), finalizando medição',
+                  );
+                  _finishMeasurement();
+                }
               },
-              cancelOnError: true,
+              cancelOnError: false,
             );
       } else {
         _subscription =
@@ -131,6 +144,14 @@ class TremorService {
   double _gravityY = 0;
   double _gravityZ = 0;
   static const double _alpha = 0.8;
+  
+  // Contador para descartar samples durante warm-up do filtro
+  int _filterWarmupSamples = 0;
+  static const int _kWarmupSampleCount = 10; // ~200ms em 20ms/sample
+  
+  // Contador de erros web para tratamento resiliente
+  int _webErrorCount = 0;
+  static const int _kMaxWebErrors = 5;
 
   void _processWebAccelerometerEvent(AccelerometerEvent event) {
     _hasReceivedData = true;
@@ -139,6 +160,12 @@ class TremorService {
     _gravityX = _alpha * _gravityX + (1 - _alpha) * event.x;
     _gravityY = _alpha * _gravityY + (1 - _alpha) * event.y;
     _gravityZ = _alpha * _gravityZ + (1 - _alpha) * event.z;
+    
+    // Descarta primeiros samples durante warm-up do filtro
+    if (_filterWarmupSamples < _kWarmupSampleCount) {
+      _filterWarmupSamples++;
+      return;
+    }
 
     // Remove a gravidade para obter a aceleração linear (movimento do usuário)
     final linearX = event.x - _gravityX;

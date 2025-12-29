@@ -5,6 +5,7 @@ import '../models/measurement.dart';
 import '../services/auto_update_service.dart';
 import '../services/tremor_service.dart';
 import '../utils/web_permission/web_permission.dart';
+import '../utils/web_sensor_support/web_sensor_support.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen>
   int _countdown = 5;
   bool _isRunning = false;
   bool _needsPermission = false;
+  WebSensorStatus? _webSensorStatus;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -55,9 +57,16 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _checkPermissions() async {
-    if (kIsWeb && WebPermissionUtils.needsPermissionRequest) {
-      // No iOS Web, precisamos pedir permissão via toque do usuário.
-      // Então apenas marcamos que precisamos mostrar o botão.
+    if (!kIsWeb) return;
+    
+    // Verifica o suporte a sensores no navegador
+    final status = await WebSensorSupport.checkAccelerometerSupport();
+    setState(() {
+      _webSensorStatus = status;
+    });
+    
+    // Se requer permissão (iOS Safari), marca para solicitar
+    if (status == WebSensorStatus.requiresPermission) {
       setState(() {
         _needsPermission = true;
       });
@@ -69,12 +78,19 @@ class _HomeScreenState extends State<HomeScreen>
     if (granted) {
       setState(() {
         _needsPermission = false;
+        _webSensorStatus = WebSensorStatus.supported;
       });
       _tremorService.startMeasurement();
     } else {
+      setState(() {
+        _webSensorStatus = WebSensorStatus.permissionDenied;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permissão de sensores negada')),
+          const SnackBar(
+            content: Text('Permissão de sensores negada'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -244,6 +260,133 @@ class _HomeScreenState extends State<HomeScreen>
     super.reassemble();
     _tremorService.refreshReference();
   }
+  
+  Widget? _buildSensorWarning() {
+    if (!kIsWeb || _webSensorStatus == null) return null;
+    
+    switch (_webSensorStatus!) {
+      case WebSensorStatus.requiresHttps:
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange, width: 2),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.lock, color: Colors.orange, size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'HTTPS Requerido',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Acelerômetro requer conexão segura (HTTPS)',
+                      style: TextStyle(
+                        color: Colors.orange.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      case WebSensorStatus.notSupported:
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red, width: 2),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.sensors_off, color: Colors.red, size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Sensor Indisponível',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Seu navegador não suporta acelerômetro',
+                      style: TextStyle(
+                        color: Colors.red.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      case WebSensorStatus.permissionDenied:
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.red, width: 2),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.block, color: Colors.red, size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Permissão Negada',
+                      style: TextStyle(
+                        color: Colors.red,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Permissão de sensores foi negada. Recarregue a página para tentar novamente.',
+                      style: TextStyle(
+                        color: Colors.red.withValues(alpha: 0.8),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      case WebSensorStatus.supported:
+      case WebSensorStatus.requiresPermission:
+        return null;
+    }
+  }
 
   // Ajuste nas cores para nova escala relativa (1.0 = Referência/Normal para Wanderson)
   // Assumindo:
@@ -287,6 +430,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: Column(
             children: [
               _buildHeader(),
+              if (_buildSensorWarning() != null) _buildSensorWarning()!,
               Expanded(
                 child: _isRunning ? _buildCountdownView() : _buildScoreView(),
               ),
@@ -490,17 +634,26 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMeasureButton() {
+    // Desabilita botão se sensor não estiver disponível na web
+    final bool isSensorUnavailable = kIsWeb &&
+        _webSensorStatus != null &&
+        (_webSensorStatus == WebSensorStatus.notSupported ||
+            _webSensorStatus == WebSensorStatus.requiresHttps ||
+            _webSensorStatus == WebSensorStatus.permissionDenied);
+    
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SizedBox(
         width: double.infinity,
         height: 56,
         child: ElevatedButton(
-          onPressed: _needsPermission
-              ? _requestPermission
-              : (_isRunning
-                    ? _tremorService.stopMeasurement
-                    : _tremorService.startMeasurement),
+          onPressed: isSensorUnavailable
+              ? null
+              : (_needsPermission
+                    ? _requestPermission
+                    : (_isRunning
+                          ? _tremorService.stopMeasurement
+                          : _tremorService.startMeasurement)),
           style: ElevatedButton.styleFrom(
             backgroundColor: _needsPermission
                 ? const Color(0xFF2196F3) // Azul para pedir permissão
@@ -508,6 +661,8 @@ class _HomeScreenState extends State<HomeScreen>
                       ? const Color(0xFFF44336)
                       : const Color(0xFF6B4EFF)),
             foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.grey.withValues(alpha: 0.3),
+            disabledForegroundColor: Colors.grey.withValues(alpha: 0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),
@@ -526,9 +681,11 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                _needsPermission
-                    ? 'Habilitar Sensores'
-                    : (_isRunning ? 'Parar' : 'Iniciar Medição'),
+                isSensorUnavailable
+                    ? 'Sensor Indisponível'
+                    : (_needsPermission
+                          ? 'Habilitar Sensores'
+                          : (_isRunning ? 'Parar' : 'Iniciar Medição')),
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
