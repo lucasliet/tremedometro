@@ -47,6 +47,45 @@ void main() {
 
       expect(version.toString(), '1.2.3+42');
     });
+
+    test('isNewerThan deve lidar com versões de 2 partes', () {
+      final v1 = AppVersion('1.0', 1);
+      final v2 = AppVersion('1.1', 1);
+
+      expect(v2.isNewerThan(v1), true);
+      expect(v1.isNewerThan(v2), false);
+    });
+
+    test('isNewerThan deve lidar com versões de 1 parte', () {
+      final v1 = AppVersion('1', 1);
+      final v2 = AppVersion('2', 1);
+
+      expect(v2.isNewerThan(v1), true);
+      expect(v1.isNewerThan(v2), false);
+    });
+
+    test('isNewerThan deve normalizar versões com diferentes números de partes', () {
+      final v1 = AppVersion('1.0', 1);
+      final v2 = AppVersion('1.0.0', 1);
+
+      expect(v2.isNewerThan(v1), false);
+      expect(v1.isNewerThan(v2), false);
+    });
+
+    test('isNewerThan deve tratar partes não-numéricas como 0', () {
+      final v1 = AppVersion('1.0.0', 1);
+      final v2 = AppVersion('1.0.x', 1);
+
+      expect(v1.isNewerThan(v2), false);
+      expect(v2.isNewerThan(v1), false);
+    });
+
+    test('isNewerThan deve comparar corretamente versões complexas', () {
+      final v1 = AppVersion('2.1', 5);
+      final v2 = AppVersion('2.1.0', 3);
+
+      expect(v1.isNewerThan(v2), true);
+    });
   });
 
   group('AutoUpdateService', () {

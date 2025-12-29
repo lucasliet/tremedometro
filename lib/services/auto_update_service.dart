@@ -12,9 +12,24 @@ class AppVersion {
 
   AppVersion(this.version, this.buildNumber);
 
+  List<int> _normalizeVersion(String version) {
+    final parts = version.split('.');
+    final normalized = <int>[];
+
+    for (var i = 0; i < 3; i++) {
+      if (i < parts.length) {
+        normalized.add(int.tryParse(parts[i]) ?? 0);
+      } else {
+        normalized.add(0);
+      }
+    }
+
+    return normalized;
+  }
+
   bool isNewerThan(AppVersion other) {
-    final thisParts = version.split('.').map(int.parse).toList();
-    final otherParts = other.version.split('.').map(int.parse).toList();
+    final thisParts = _normalizeVersion(version);
+    final otherParts = _normalizeVersion(other.version);
 
     for (var i = 0; i < 3; i++) {
       if (thisParts[i] > otherParts[i]) return true;
