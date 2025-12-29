@@ -7,6 +7,7 @@ O **Tremedômetro** é um aplicativo Flutter inovador projetado para medir e qua
 *   **Escala BlueGuava**: Uma medida de intensidade relativa. O valor **1.0** representa o tremor de referência padrão (calibrado dinamicamente pela tremedeira do Wanderson Lopes). Valores maiores indicam tremores mais intensos (ex: 2.0 = dobro da referência).
 *   **Interface Moderna**: Design escuro (dark mode), feedback visual imediato e histórico de medições.
 *   **Multiplataforma**: Funciona nativamente no **Android** e via navegador (**PWA**), com suporte especial para iOS Safari.
+*   **Auto-Update**: Verifica automaticamente por novas versões ao abrir o app e notifica o usuário.
 
 ---
 
@@ -50,6 +51,26 @@ Baixe a versão mais recente do APK para Android na página de Releases:
     ```bash
     flutter run -d chrome
     ```
+
+---
+
+### 📊 Como funciona o cálculo de tremedeira?
+
+Durante 5 segundos, o app coleta dados do acelerômetro e calcula a magnitude vetorial de cada amostra:
+
+```text
+magnitude = √(x² + y² + z²)
+```
+
+Onde x, y, z são as componentes da aceleração linear (em m/s²).
+
+O score final é calculado como:
+
+```text
+Score = média(magnitudes) × 1000
+```
+
+A escala **BlueGuava** é relativa ao tremor de referência do Wanderson Lopes. Quando ele mede sua tremedeira, esse valor se torna a base de comparação (1.0). Valores maiores indicam tremor mais intenso que a referência.
 
 ---
 

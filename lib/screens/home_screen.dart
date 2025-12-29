@@ -2,8 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../models/measurement.dart';
+import '../services/auto_update_service.dart';
 import '../services/tremor_service.dart';
-import '../utils/web_permission/web_permission.dart'; // [NEW] Import
+import '../utils/web_permission/web_permission.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   final TremorService? tremorServiceOverride;
@@ -20,12 +22,13 @@ class _HomeScreenState extends State<HomeScreen>
   static const bool _showPrime = bool.fromEnvironment('PRIME');
 
   late TremorService _tremorService;
+  late AutoUpdateService _autoUpdateService;
 
   List<Measurement> _measurements = [];
-  double? _lastScore; // [CHANGE] int -> double
+  double? _lastScore;
   int _countdown = 5;
   bool _isRunning = false;
-  bool _needsPermission = false; // [NEW]
+  bool _needsPermission = false;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -34,13 +37,23 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     _tremorService = widget.tremorServiceOverride ?? TremorService();
-    _checkPermissions(); // [NEW]
+    _autoUpdateService = AutoUpdateService();
+    _checkPermissions();
     _loadMeasurements();
     _setupListeners();
     _setupAnimations();
+    _checkForUpdates();
   }
 
-  // [NEW]
+  Future<void> _checkForUpdates() async {
+    if (kIsWeb) return;
+
+    final releaseInfo = await _autoUpdateService.checkForUpdate();
+    if (releaseInfo != null && mounted) {
+      _showUpdateDialog(releaseInfo);
+    }
+  }
+
   Future<void> _checkPermissions() async {
     if (kIsWeb && WebPermissionUtils.needsPermissionRequest) {
       // No iOS Web, precisamos pedir permissão via toque do usuário.
@@ -51,7 +64,6 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  // [NEW]
   Future<void> _requestPermission() async {
     final granted = await WebPermissionUtils.requestSensorPermission();
     if (granted) {
@@ -86,39 +98,31 @@ class _HomeScreenState extends State<HomeScreen>
         _pulseController.repeat(reverse: true);
       } else {
         _pulseController.stop();
-        _pulseController.stop();
       }
     });
 
     _tremorService.countdownStream.listen((countdown) {
+      if (!mounted) return;
       setState(() => _countdown = countdown);
     });
 
     _tremorService.scoreStream.listen((score) {
-      if (score == -1) {
-        // -1 indica erro de sensor (nenhum dado recebido)
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
-              ),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 5),
+      if (!mounted) return;
+      if (score == TremorService.kSensorError) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Não foi possível ler os sensores. Verifique se seu dispositivo tem acelerômetro e se a permissão foi concedida.',
             ),
-          );
-        }
-        setState(() {
-          _lastScore = 0.0; // Reseta para 0 visualmente
-        });
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        setState(() => _lastScore = 0.0);
       } else {
         debugPrint('HomeScreen: Score received: $score');
-        setState(() {
-          _lastScore = score;
-        });
-        // Service já salva automaticamente ao finalizar medição
+        setState(() => _lastScore = score);
         _loadMeasurements();
-        // Não mostra diálogo aqui, apenas atualiza UI
       }
     });
 
@@ -147,7 +151,91 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _pulseController.dispose();
     _tremorService.dispose();
+    _autoUpdateService.dispose();
     super.dispose();
+  }
+
+  void _showUpdateDialog(ReleaseInfo releaseInfo) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1a1a2e),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.update, color: Color(0xFF6B4EFF)),
+            const SizedBox(width: 12),
+            const Text(
+              'Atualização Disponível',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Nova versão: ${releaseInfo.version}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Novidades:',
+              style: TextStyle(
+                color: Colors.white70,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                child: Text(
+                  releaseInfo.changelog,
+                  style: const TextStyle(color: Colors.white60, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Agora não'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
+              Navigator.pop(context);
+              final url = Uri.parse(releaseInfo.downloadUrl);
+              if (await canLaunchUrl(url)) {
+                await launchUrl(url, mode: LaunchMode.externalApplication);
+              } else {
+                if (mounted) {
+                  scaffoldMessenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Não foi possível abrir o link de download'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6B4EFF),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Atualizar'),
+          ),
+        ],
+      ),
+    );
   }
 
   // Hot Reload triggers reassemble

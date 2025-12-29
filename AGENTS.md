@@ -2,6 +2,8 @@
 
 Este arquivo serve como guia para agentes de IA que venham a trabalhar neste repositório no futuro.
 
+> **⚠️ Mantenha este arquivo atualizado**: Sempre que fizer mudanças que alterem o contexto geral da aplicação (nova feature, novo serviço, mudança de arquitetura, novo workflow, etc.) ou que invalidem informações aqui documentadas, atualize as seções relevantes.
+
 # Repository Guidelines
 
 A Flutter application that measures tremors using accelerometer data and calculates a "BlueGuava" score (0-1000). Supports Android, iOS, and PWA.
@@ -52,8 +54,19 @@ Run `flutter analyze` before committing to ensure code quality.
 - **Location**: `test/` directory
 - **Naming**: `*_test.dart` suffix
 - **Structure**: Follow AAA pattern (Arrange/Act/Assert)
+- **Mocking**: Uses `mockito` with code generation
 
-Run tests with: `flutter test`
+### Running Tests
+
+Before running tests for the first time (or after changing mocked classes), generate the mock files:
+
+```bash
+dart run build_runner build --delete-conflicting-outputs
+```
+
+This is required because `mockito` uses code generation to create type-safe mocks. The generated files (`*.mocks.dart`) are gitignored and must be regenerated locally.
+
+Then run tests with: `flutter test`
 
 ## Commit & Pull Request Guidelines
 
@@ -65,7 +78,9 @@ Run tests with: `flutter test`
 
 ## CI/CD Pipelines
 
+- `run-tests.yml`: Executa testes, linting e geração de ícones em PRs e pushes para `main`/`develop`
 - `deploy-web.yml`: Deploys PWA to web hosting (GitHub Pages)
+- `publish-android.yml`: Builda e publica APKs assinados nas releases do GitHub
 
 ## Notas Técnicas Específicas
 
@@ -75,6 +90,57 @@ Run tests with: `flutter test`
 
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
+
+### Android Signing (Assinatura de APK)
+
+APKs são assinados com keystore de release para permitir atualizações sem desinstalar.
+
+- **Local**: Keystore em `android/app/upload-keystore.jks` + credenciais em `android/key.properties`
+- **CI/CD**: GitHub Secrets configurados (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`)
+- **Build**: `flutter build apk --release` assina automaticamente
+- **Importante**: Keystore e credenciais estão em `.gitignore` (nunca commitar!)
+
+---
+
+## Feature: Auto-Update
+
+Sistema de atualização automática que verifica novas versões do app ao abrir.
+
+### Funcionamento
+
+1. **Verificação**: Ao iniciar o app, o `AutoUpdateService` consulta a API do GitHub (`/repos/lucasliet/tremedometro/releases/latest`).
+2. **Comparação**: Compara a versão remota com a versão local do app (do `pubspec.yaml` via `package_info_plus`).
+3. **Notificação**: Se houver nova versão, exibe um dialog com:
+   - Número da versão nova
+   - Changelog da release
+   - Botões "Agora não" e "Atualizar"
+4. **Download**: Ao clicar em "Atualizar", abre o link de download do APK (Android) ou página de release no navegador.
+
+### Intervalo de Verificação
+
+- **Padrão**: 24 horas entre verificações
+- **Cache**: Usa `SharedPreferences` para armazenar data da última verificação
+- **Skip**: Se verificou recentemente (< 24h), não consulta a API
+
+### Plataformas
+
+- **Android**: ✅ Abre download direto do APK
+- **iOS**: ✅ Abre página de release
+- **Web**: ⏭️ Auto-update desabilitado (PWAs atualizam automaticamente pelo navegador)
+
+### Testes
+
+- Testes unitários em `test/services/auto_update_service_test.dart`
+- Usa `mockito` para mockar requisições HTTP
+- Cobertura: parsing de versões, comparação, detecção de APK, cache
+
+### Dependências
+
+- `package_info_plus`: Obter versão atual do app
+- `url_launcher`: Abrir links de download
+- `http`: Requisições à API do GitHub
+
+---
 
 ## Feature: Calibração Dinâmica (Wanderboy)
 
@@ -117,4 +183,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-27*
+*Last Updated: 2025-12-28*
