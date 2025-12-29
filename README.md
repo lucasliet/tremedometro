@@ -56,51 +56,21 @@ Baixe a versão mais recente do APK para Android na página de Releases:
 
 ### 📊 Como funciona o cálculo de tremedeira?
 
-O Tremedômetro utiliza um sistema de medição em duas camadas para quantificar tremores de forma precisa e intuitiva:
-
-#### GuavaPrime (Medida Bruta)
-
-A medida bruta, chamada **GuavaPrime**, é calculada a partir dos dados do acelerômetro do dispositivo:
-
-1. **Captura de Dados**: Durante 5 segundos, o app coleta dados do acelerômetro a cada 20ms (50Hz).
-
-2. **Remoção de Gravidade**:
-   - **Mobile**: Usa o sensor `UserAccelerometer` que já remove a gravidade automaticamente.
-   - **Web**: Aplica um filtro passa-alta manual para isolar apenas o movimento do usuário, removendo a influência da gravidade.
-
-3. **Cálculo da Magnitude**: Para cada amostra, calcula-se a magnitude vetorial:
-   ```
-   magnitude = √(x² + y² + z²)
-   ```
-   Onde x, y, z são as componentes da aceleração linear (em m/s²).
-
-4. **GuavaPrime**: A média de todas as magnitudes multiplicada por 1000 para uma escala legível:
-   ```
-   GuavaPrime = média(magnitudes) × 1000
-   ```
-
-#### BlueGuava (Escala Relativa)
-
-O **BlueGuava** é a escala final exibida ao usuário, calculada como:
+Durante 5 segundos, o app coleta dados do acelerômetro e calcula a magnitude vetorial de cada amostra:
 
 ```
-BlueGuava = GuavaPrime / Referência
+magnitude = √(x² + y² + z²)
 ```
 
-Onde a **Referência** é o valor médio das últimas 4 medições do usuário administrador (Wanderson Lopes). Isso cria uma escala relativa onde:
-- **1.0** = tremor equivalente ao padrão de referência
-- **< 1.0** = tremor mais leve que a referência
-- **> 1.0** = tremor mais intenso que a referência
+Onde x, y, z são as componentes da aceleração linear (em m/s²).
 
-#### Por que essa abordagem?
+O score final é calculado como:
 
-1. **Calibração Dinâmica**: A referência pode ser atualizada sem invalidar medições antigas. Todo o histórico é recalculado automaticamente com a nova referência.
+```
+Score = média(magnitudes) × 1000
+```
 
-2. **Escala Intuitiva**: Usar um valor relativo (1.0 = referência) é mais fácil de interpretar do que valores brutos de aceleração.
-
-3. **Persistência Inteligente**: Salvar o GuavaPrime (valor bruto) permite recalibrar retroativamente todas as medições.
-
-4. **Precisão Cross-Platform**: O sistema se adapta às diferenças entre sensores nativos (mobile) e web, garantindo medições consistentes.
+A escala **BlueGuava** é relativa ao tremor de referência do Wanderson Lopes. Quando ele mede sua tremedeira, esse valor se torna a base de comparação (1.0). Valores maiores indicam tremor mais intenso que a referência.
 
 ---
 
