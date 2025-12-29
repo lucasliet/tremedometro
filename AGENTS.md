@@ -93,15 +93,23 @@ Then run tests with: `flutter test`
   - Disponibilidade do acelerômetro no navegador
   - Necessidade de permissão explícita (iOS Safari)
   - Feedback visual ao usuário quando sensor indisponível
-- **Filtro Passa-Alta Web**: 
-  - O acelerômetro web retorna aceleração total (incluindo gravidade)
-  - TremorService aplica filtro passa-alta (alpha=0.8) para remover gravidade
+- **Filtro Passa-Alta Web**:
+  - O acelerômetro web (`AccelerometerEvent`) retorna aceleração total (incluindo gravidade)
+  - Mobile usa `UserAccelerometerEvent` (remove gravidade via fusão de sensores)
+  - TremorService aplica filtro passa-alta (alpha=0.98, cutoff ~0.16 Hz) para remover gravidade no web
   - Filtro é resetado entre medições para evitar contaminação
-  - Primeiros 10 samples (~200ms) são descartados durante warm-up do filtro
-- **Error Handling Web**: 
+  - Primeiros 100 samples (~2s) são descartados durante warm-up do filtro para convergência
+  - **Limitação**: Sem acesso ao giroscópio, rotações do dispositivo podem ser contadas como movimento
+  - **Futuro**: Implementar LinearAccelerationSensor API (Chrome/Android only) para remoção nativa da gravidade
+- **Error Handling Web**:
   - `cancelOnError: false` para resiliência a erros transientes
   - Contador de erros com limite de 5 falhas consecutivas
   - Apenas finaliza medição após múltiplos erros
+- **iOS Safari Known Issues**:
+  - **Bug de Zeros**: iOS 13.4+ pode retornar (0,0,0) mesmo após permissão concedida
+  - Detecção automática: se 100 samples consecutivos forem zeros, finaliza com erro
+  - **Configurações Ocultas**: iOS 18 pode não mostrar "Motion & Orientation" em Settings > Safari
+  - **Workaround**: Usar app nativo em vez do PWA no iOS se sensor não funcionar
 
 ### Desktop
 - O suporte a Desktop foi removido intencionalmente para focar em Mobile e PWA. Pastas `linux`, `windows` e `macos` foram excluídas.
@@ -198,4 +206,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-28*
+*Last Updated: 2025-12-29*
