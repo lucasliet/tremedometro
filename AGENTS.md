@@ -125,41 +125,73 @@ APKs são assinados com keystore de release para permitir atualizações sem des
 
 ## Feature: Auto-Update
 
-Sistema de atualização automática que verifica novas versões do app ao abrir.
+Sistema de atualização automática que verifica, baixa e instala novas versões do app.
 
 ### Funcionamento
 
 1. **Verificação**: Ao iniciar o app, o `AutoUpdateService` consulta a API do GitHub (`/repos/lucasliet/tremedometro/releases/latest`).
 2. **Comparação**: Compara a versão remota com a versão local do app (do `pubspec.yaml` via `package_info_plus`).
-3. **Notificação**: Se houver nova versão, exibe um dialog com:
+3. **Detecção de Arquitetura**: Detecta automaticamente a ABI do dispositivo Android (`arm64-v8a`, `armeabi-v7a`, `x86_64`, `x86`) via código nativo Kotlin.
+4. **Seleção de APK**: Seleciona o APK correto da release baseado na arquitetura do dispositivo, com fallback para APK universal se necessário.
+5. **Notificação**: Se houver nova versão, exibe um dialog com:
    - Número da versão nova
    - Changelog da release
    - Botões "Agora não" e "Atualizar"
-4. **Download**: Ao clicar em "Atualizar", abre o link de download do APK (Android) ou página de release no navegador.
+6. **Download e Instalação**: Ao clicar em "Atualizar":
+   - Baixa o APK correto automaticamente com feedback de progresso (usando `dio`)
+   - Salva no diretório de cache do app (`/cache/apk/`)
+   - Abre o instalador do Android automaticamente
+   - Exibe SnackBars com progresso de download (10%, 20%, ..., 100%)
+7. **Limpeza**: Na próxima abertura do app após instalação, remove automaticamente o APK do cache.
 
 ### Intervalo de Verificação
 
-- **Padrão**: 24 horas entre verificações
-- **Cache**: Usa `SharedPreferences` para armazenar data da última verificação
-- **Skip**: Se verificou recentemente (< 24h), não consulta a API
+- **24 horas**: Respeita intervalo de 24h entre verificações para não sobrecarregar a API do GitHub
+- **Exceção**: Se houver atualização disponível, o timestamp NÃO é salvo, fazendo o diálogo aparecer toda vez que o app abre até que o usuário atualize
+- **Após atualização**: Quando o app é atualizado com sucesso, o timestamp é resetado automaticamente
+- **Limpeza automática**: Remove APK do cache após primeira abertura do app atualizado
+
+**Comportamento**:
+1. App abre → Verifica se passou 24h desde última checagem
+2. Se passou 24h → Consulta GitHub API
+3. Se app está atualizado → Salva timestamp (não consulta de novo por 24h)
+4. Se há atualização disponível → NÃO salva timestamp (continua mostrando diálogo toda vez)
+5. Usuário atualiza → Na próxima abertura, limpa APK e reseta timestamp
 
 ### Plataformas
 
-- **Android**: ✅ Abre download direto do APK
-- **iOS**: ✅ Abre página de release
+- **Android**: ✅ Download e instalação automática com detecção de arquitetura
+- **iOS**: ❌ Não implementado (App Store gerencia atualizações)
 - **Web**: ⏭️ Auto-update desabilitado (PWAs atualizam automaticamente pelo navegador)
+
+### Permissões Android
+
+- `REQUEST_INSTALL_PACKAGES`: Permite instalar APKs
+- `WRITE_EXTERNAL_STORAGE` (API ≤ 28): Permite salvar APK no cache
+- `READ_EXTERNAL_STORAGE` (API ≤ 32): Permite ler APK do cache
+
+### Código Nativo (Kotlin)
+
+`MainActivity.kt` implementa três métodos via MethodChannel:
+- `getDeviceAbi()`: Retorna a ABI preferida do dispositivo (`Build.SUPPORTED_ABIS[0]`)
+- `installApk(apkPath)`: Abre o instalador do Android com o APK
+- `deleteApk(apkPath)`: Remove o APK do cache (usado na limpeza)
+
+Usa `FileProvider` para compartilhar o APK com o instalador de forma segura (necessário no Android 7.0+).
 
 ### Testes
 
 - Testes unitários em `test/services/auto_update_service_test.dart`
 - Usa `mockito` para mockar requisições HTTP
-- Cobertura: parsing de versões, comparação, detecção de APK, cache
+- Cobertura: parsing de versões, comparação, detecção de APK, seleção baseada em ABI
 
 ### Dependências
 
 - `package_info_plus`: Obter versão atual do app
-- `url_launcher`: Abrir links de download
 - `http`: Requisições à API do GitHub
+- `dio`: Download com progresso
+- `path_provider`: Acesso ao diretório de cache
+- `device_info_plus`: Informações do dispositivo (não usado atualmente, mas disponível)
 
 ---
 
@@ -204,4 +236,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-29*
+*Last Updated: 2025-12-30*
