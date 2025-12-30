@@ -24,8 +24,12 @@ class MainActivity : FlutterActivity() {
                 "installApk" -> {
                     val apkPath = call.argument<String>("apkPath")
                     if (apkPath != null) {
-                        installApk(apkPath)
-                        result.success(true)
+                        try {
+                            installApk(apkPath)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("INSTALL_ERROR", e.message, null)
+                        }
                     } else {
                         result.error("INVALID_PATH", "APK path is null", null)
                     }
@@ -47,16 +51,24 @@ class MainActivity : FlutterActivity() {
 
     private fun installApk(apkPath: String) {
         val file = File(apkPath)
+        if (!file.exists()) {
+            throw IllegalArgumentException("APK file not found: $apkPath")
+        }
+
         val intent = Intent(Intent.ACTION_VIEW)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            val apkUri = FileProvider.getUriForFile(
-                this,
-                "${applicationContext.packageName}.fileprovider",
-                file
-            )
-            intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
-            intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+            try {
+                val apkUri = FileProvider.getUriForFile(
+                    this,
+                    "${applicationContext.packageName}.fileprovider",
+                    file
+                )
+                intent.setDataAndType(apkUri, "application/vnd.android.package-archive")
+                intent.flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK
+            } catch (e: IllegalArgumentException) {
+                throw IllegalStateException("Failed to get URI for APK: ${e.message}")
+            }
         } else {
             intent.setDataAndType(Uri.fromFile(file), "application/vnd.android.package-archive")
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK

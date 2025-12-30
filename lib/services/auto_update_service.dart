@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'auto_update_service_stub.dart';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -224,41 +224,39 @@ class AutoUpdateService {
         'continuar mostrando o diálogo até atualização',
       );
 
-      final assets = data['assets'] as List<dynamic>?;
-      if (assets == null || assets.isEmpty) {
-        debugPrint('AutoUpdate: Nenhum asset encontrado na release');
-        return null;
-      }
-
-      String apkUrl;
-      int? fileSize;
-
-      try {
-        apkUrl = _selectApkForAbi(assets, deviceAbi);
-
-        final selectedAsset = assets.firstWhere(
-          (asset) => asset['browser_download_url'] == apkUrl,
-          orElse: () => null,
-        );
-
-        if (selectedAsset != null) {
-          fileSize = selectedAsset['size'] as int?;
-        }
-
-        debugPrint('AutoUpdate: APK selecionado: $apkUrl');
-      } catch (e) {
-        debugPrint('AutoUpdate: Erro ao selecionar APK: $e');
-        return null;
-      }
-
       final releaseUrl = data['html_url'] as String? ??
           'https://github.com/$_repoOwner/$_repoName/releases/latest';
+
+      final assets = data['assets'] as List<dynamic>?;
+      String? apkUrl;
+      int? fileSize;
+
+      if (assets != null && assets.isNotEmpty) {
+        try {
+          apkUrl = _selectApkForAbi(assets, deviceAbi);
+
+          final selectedAsset = assets.firstWhere(
+            (asset) => asset['browser_download_url'] == apkUrl,
+            orElse: () => null,
+          );
+
+          if (selectedAsset != null) {
+            fileSize = selectedAsset['size'] as int?;
+          }
+
+          debugPrint('AutoUpdate: APK selecionado: $apkUrl');
+        } catch (e) {
+          debugPrint('AutoUpdate: Erro ao selecionar APK: $e, usando releaseUrl');
+        }
+      } else {
+        debugPrint('AutoUpdate: Nenhum asset encontrado, usando releaseUrl');
+      }
 
       final changelog = data['body'] as String? ?? 'Sem notas de atualização';
 
       return ReleaseInfo(
         version: remoteVersion,
-        downloadUrl: apkUrl,
+        downloadUrl: apkUrl ?? releaseUrl,
         releaseUrl: releaseUrl,
         changelog: changelog,
         fileSizeBytes: fileSize,
