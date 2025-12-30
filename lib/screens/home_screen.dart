@@ -256,19 +256,45 @@ class _HomeScreenState extends State<HomeScreen>
             onPressed: () => Navigator.pop(context),
             child: const Text('Agora não'),
           ),
-          ElevatedButton(
+ElevatedButton(
             onPressed: () async {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-              final url = Uri.parse(releaseInfo.downloadUrl);
-              if (await canLaunchUrl(url)) {
-                await launchUrl(url, mode: LaunchMode.externalApplication);
-              } else {
+
+              scaffoldMessenger.showSnackBar(
+                const SnackBar(
+                  content: Text('Iniciando download da atualização...'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+
+              try {
+                double downloadProgress = 0.0;
+                await _autoUpdateService.downloadAndInstallUpdate(
+                  releaseInfo,
+                  onProgress: (progress) {
+                    if (progress - downloadProgress >= 0.1 || progress >= 1.0) {
+                      downloadProgress = progress;
+                      final percent = (progress * 100).toInt();
+                      scaffoldMessenger.hideCurrentSnackBar();
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: Text('Baixando atualização: $percent%'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    }
+                  },
+                );
+              } catch (e) {
+                debugPrint('Erro ao atualizar: $e');
                 if (mounted) {
+                  scaffoldMessenger.hideCurrentSnackBar();
                   scaffoldMessenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Não foi possível abrir o link de download'),
+                    SnackBar(
+                      content: Text('Erro ao atualizar: $e'),
                       backgroundColor: Colors.red,
+                      duration: const Duration(seconds: 5),
                     ),
                   );
                 }
