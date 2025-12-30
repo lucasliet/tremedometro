@@ -66,7 +66,9 @@ class ReleaseInfo {
 class AutoUpdateService {
   static const String _repoOwner = 'lucasliet';
   static const String _repoName = 'tremedometro';
-  static const String _updateInstalledKey = 'update_installed';
+  static const String _lastCheckKey = 'last_update_check';
+  static const String _downloadedApkKey = 'downloaded_apk_path';
+  static const Duration _checkInterval = Duration(hours: 24);
   static const MethodChannel _channel =
       MethodChannel('br.com.lucasliet.blueguava/update');
 
@@ -153,6 +155,21 @@ class AutoUpdateService {
       await _cleanupOldApk();
 
       final currentVersion = await _getCurrentVersion();
+      final prefs = await SharedPreferences.getInstance();
+      final lastCheck = prefs.getString(_lastCheckKey);
+
+      if (lastCheck != null) {
+        final lastCheckTime = DateTime.parse(lastCheck);
+        final timeSinceLastCheck = DateTime.now().difference(lastCheckTime);
+        if (timeSinceLastCheck < _checkInterval) {
+          debugPrint(
+            'AutoUpdate: Última verificação há ${timeSinceLastCheck.inHours}h, '
+            'pulando (intervalo: ${_checkInterval.inHours}h)',
+          );
+          return null;
+        }
+      }
+
       final deviceAbi = await _getDeviceAbi();
 
       debugPrint('AutoUpdate: Verificando última release no GitHub...');
@@ -198,8 +215,14 @@ class AutoUpdateService {
 
       if (!remoteVersion.isNewerThan(currentVersion)) {
         debugPrint('AutoUpdate: Aplicativo está atualizado');
+        await prefs.setString(_lastCheckKey, DateTime.now().toIso8601String());
         return null;
       }
+
+      debugPrint(
+        'AutoUpdate: Nova versão disponível! Não salvando timestamp para '
+        'continuar mostrando o diálogo até atualização',
+      );
 
       final assets = data['assets'] as List<dynamic>?;
       if (assets == null || assets.isEmpty) {
@@ -283,10 +306,10 @@ class AutoUpdateService {
 
       debugPrint('AutoUpdate: Download concluído, instalando...');
 
-      await _channel.invokeMethod('installApk', {'apkPath': apkPath});
-
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_updateInstalledKey, apkPath);
+      await prefs.setString(_downloadedApkKey, apkPath);
+
+      await _channel.invokeMethod('installApk', {'apkPath': apkPath});
 
       debugPrint('AutoUpdate: Instalação iniciada');
 
@@ -302,15 +325,22 @@ class AutoUpdateService {
       if (kIsWeb) return;
 
       final prefs = await SharedPreferences.getInstance();
-      final oldApkPath = prefs.getString(_updateInstalledKey);
+      final currentVersion = await _getCurrentVersion();
+      final downloadedApkPath = prefs.getString(_downloadedApkKey);
 
-      if (oldApkPath != null) {
-        final oldApkFile = File(oldApkPath);
+      if (downloadedApkPath != null) {
+        final oldApkFile = File(downloadedApkPath);
         if (await oldApkFile.exists()) {
           await oldApkFile.delete();
-          debugPrint('AutoUpdate: APK antigo removido: $oldApkPath');
+          debugPrint('AutoUpdate: APK baixado removido: $downloadedApkPath');
         }
-        await prefs.remove(_updateInstalledKey);
+        await prefs.remove(_downloadedApkKey);
+
+        await prefs.setString(_lastCheckKey, DateTime.now().toIso8601String());
+        debugPrint(
+          'AutoUpdate: App foi atualizado para $currentVersion, '
+          'resetando timestamp de verificação',
+        );
       }
     } catch (e) {
       debugPrint('AutoUpdate: Erro ao limpar APK antigo: $e');

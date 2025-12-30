@@ -146,8 +146,17 @@ Sistema de atualização automática que verifica, baixa e instala novas versõe
 
 ### Intervalo de Verificação
 
-- **Sempre**: Verifica toda vez que o app abre (sem intervalo de espera)
+- **24 horas**: Respeita intervalo de 24h entre verificações para não sobrecarregar a API do GitHub
+- **Exceção**: Se houver atualização disponível, o timestamp NÃO é salvo, fazendo o diálogo aparecer toda vez que o app abre até que o usuário atualize
+- **Após atualização**: Quando o app é atualizado com sucesso, o timestamp é resetado automaticamente
 - **Limpeza automática**: Remove APK do cache após primeira abertura do app atualizado
+
+**Comportamento**:
+1. App abre → Verifica se passou 24h desde última checagem
+2. Se passou 24h → Consulta GitHub API
+3. Se app está atualizado → Salva timestamp (não consulta de novo por 24h)
+4. Se há atualização disponível → NÃO salva timestamp (continua mostrando diálogo toda vez)
+5. Usuário atualiza → Na próxima abertura, limpa APK e reseta timestamp
 
 ### Plataformas
 
