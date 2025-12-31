@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/measurement.dart';
 import '../services/auto_update_service.dart';
@@ -21,6 +24,7 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   // Flag de Debug para mostrar GuavaPrime (Raw Score)
   static const bool _showPrime = bool.fromEnvironment('PRIME');
+  static const String _pendingUpdateKey = 'pending_update_info';
 
   late TremorService _tremorService;
   late AutoUpdateService _autoUpdateService;
@@ -31,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isRunning = false;
   bool _needsPermission = false;
   WebSensorStatus? _webSensorStatus;
+  ReleaseInfo? _pendingUpdate;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -44,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen>
     _loadMeasurements();
     _setupListeners();
     _setupAnimations();
+    _loadPendingUpdate();
     _checkForUpdates();
   }
 
@@ -194,6 +200,65 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _measurements = measurements);
   }
 
+  Future<void> _loadPendingUpdate() async {
+    if (kIsWeb) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final updateJson = prefs.getString(_pendingUpdateKey);
+
+      if (updateJson != null) {
+        final updateData = json.decode(updateJson) as Map<String, dynamic>;
+        setState(() {
+          _pendingUpdate = ReleaseInfo(
+            version: AppVersion(
+              updateData['version'] as String,
+              updateData['buildNumber'] as int,
+            ),
+            downloadUrl: updateData['downloadUrl'] as String,
+            releaseUrl: updateData['releaseUrl'] as String,
+            changelog: updateData['changelog'] as String,
+            fileSizeBytes: updateData['fileSizeBytes'] as int?,
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro ao carregar atualização pendente: $e');
+    }
+  }
+
+  Future<void> _savePendingUpdate(ReleaseInfo releaseInfo) async {
+    if (kIsWeb) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final updateData = {
+        'version': releaseInfo.version.version,
+        'buildNumber': releaseInfo.version.buildNumber,
+        'downloadUrl': releaseInfo.downloadUrl,
+        'releaseUrl': releaseInfo.releaseUrl,
+        'changelog': releaseInfo.changelog,
+        'fileSizeBytes': releaseInfo.fileSizeBytes,
+      };
+      await prefs.setString(_pendingUpdateKey, json.encode(updateData));
+      setState(() => _pendingUpdate = releaseInfo);
+    } catch (e) {
+      debugPrint('Erro ao salvar atualização pendente: $e');
+    }
+  }
+
+  Future<void> _clearPendingUpdate() async {
+    if (kIsWeb) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pendingUpdateKey);
+      setState(() => _pendingUpdate = null);
+    } catch (e) {
+      debugPrint('Erro ao limpar atualização pendente: $e');
+    }
+  }
+
   @override
   void dispose() {
     _pulseController.dispose();
@@ -253,52 +318,17 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () async {
+              await _savePendingUpdate(releaseInfo);
+              if (!mounted) return;
+              Navigator.pop(context);
+            },
             child: const Text('Agora não'),
           ),
-ElevatedButton(
+          ElevatedButton(
             onPressed: () async {
-              final scaffoldMessenger = ScaffoldMessenger.of(context);
               Navigator.pop(context);
-
-              scaffoldMessenger.showSnackBar(
-                const SnackBar(
-                  content: Text('Iniciando download da atualização...'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-
-              try {
-                double downloadProgress = 0.0;
-                await _autoUpdateService.downloadAndInstallUpdate(
-                  releaseInfo,
-                  onProgress: (progress) {
-                    if (progress - downloadProgress >= 0.1 || progress >= 1.0) {
-                      downloadProgress = progress;
-                      final percent = (progress * 100).toInt();
-                      scaffoldMessenger.hideCurrentSnackBar();
-                      scaffoldMessenger.showSnackBar(
-                        SnackBar(
-                          content: Text('Baixando atualização: $percent%'),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-                    }
-                  },
-                );
-              } catch (e) {
-                debugPrint('Erro ao atualizar: $e');
-                if (mounted) {
-                  scaffoldMessenger.hideCurrentSnackBar();
-                  scaffoldMessenger.showSnackBar(
-                    SnackBar(
-                      content: Text('Erro ao atualizar: $e'),
-                      backgroundColor: Colors.red,
-                      duration: const Duration(seconds: 5),
-                    ),
-                  );
-                }
-              }
+              await _showDownloadProgressDialog(releaseInfo);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6B4EFF),
@@ -307,6 +337,18 @@ ElevatedButton(
             child: const Text('Atualizar'),
           ),
         ],
+      ),
+    );
+  }
+
+  Future<void> _showDownloadProgressDialog(ReleaseInfo releaseInfo) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _DownloadProgressDialog(
+        releaseInfo: releaseInfo,
+        autoUpdateService: _autoUpdateService,
+        onDownloadComplete: _clearPendingUpdate,
       ),
     );
   }
@@ -563,6 +605,23 @@ ElevatedButton(
               ],
             ),
           ),
+          if (_pendingUpdate != null)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
+                onPressed: () => _showUpdateDialog(_pendingUpdate!),
+                icon: const Icon(Icons.system_update, size: 20),
+                label: const Text('Atualizar'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6B4EFF),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
           if (_measurements.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.white54),
@@ -1076,6 +1135,184 @@ ElevatedButton(
             child: const Text(
               'Limpar',
               style: TextStyle(color: Color(0xFFF44336)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DownloadProgressDialog extends StatefulWidget {
+  final ReleaseInfo releaseInfo;
+  final AutoUpdateService autoUpdateService;
+  final Future<void> Function() onDownloadComplete;
+
+  const _DownloadProgressDialog({
+    required this.releaseInfo,
+    required this.autoUpdateService,
+    required this.onDownloadComplete,
+  });
+
+  @override
+  State<_DownloadProgressDialog> createState() =>
+      _DownloadProgressDialogState();
+}
+
+class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
+  double _downloadProgress = 0.0;
+  bool _isDownloading = true;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownload();
+  }
+
+  Future<void> _startDownload() async {
+    try {
+      await widget.autoUpdateService.downloadAndInstallUpdate(
+        widget.releaseInfo,
+        onProgress: (progress) {
+          if (!mounted || !_isDownloading) return;
+          setState(() {
+            _downloadProgress = progress;
+          });
+        },
+      );
+
+      await widget.onDownloadComplete();
+
+      if (!mounted) return;
+      setState(() {
+        _isDownloading = false;
+      });
+
+      // Aguardar um momento antes de fechar
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (e) {
+      debugPrint('Erro ao atualizar: $e');
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = e.toString();
+        _isDownloading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isDownloading && _errorMessage == null) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1a1a2e),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
+            SizedBox(width: 12),
+            Text(
+              'Download Concluído',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'A instalação será iniciada em instantes.',
+              style: TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1a1a2e),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: const Row(
+          children: [
+            Icon(Icons.error, color: Color(0xFFF44336)),
+            SizedBox(width: 12),
+            Text(
+              'Erro ao Atualizar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _errorMessage!,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Fechar'),
+          ),
+        ],
+      );
+    }
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1a1a2e),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      title: const Row(
+        children: [
+          Icon(Icons.download, color: Color(0xFF6B4EFF)),
+          SizedBox(width: 12),
+          Text(
+            'Baixando Atualização',
+            style: TextStyle(color: Colors.white),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Versão ${widget.releaseInfo.version}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
+          LinearProgressIndicator(
+            value: _downloadProgress,
+            backgroundColor: Colors.white.withValues(alpha: 0.1),
+            valueColor: const AlwaysStoppedAnimation<Color>(
+              Color(0xFF6B4EFF),
+            ),
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              '${(_downloadProgress * 100).toInt()}%',
+              style: const TextStyle(
+                color: Color(0xFF6B4EFF),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
           ),
         ],
