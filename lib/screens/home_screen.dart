@@ -209,21 +209,40 @@ class _HomeScreenState extends State<HomeScreen>
 
       if (updateJson != null) {
         final updateData = json.decode(updateJson) as Map<String, dynamic>;
+
+        final version = updateData['version'];
+        final buildNumber = updateData['buildNumber'];
+        final downloadUrl = updateData['downloadUrl'];
+        final releaseUrl = updateData['releaseUrl'];
+        final changelog = updateData['changelog'];
+
+        if (version is! String ||
+            buildNumber is! int ||
+            downloadUrl is! String ||
+            releaseUrl is! String ||
+            changelog is! String) {
+          debugPrint('Dados de atualização inválidos, limpando...');
+          await prefs.remove(_pendingUpdateKey);
+          return;
+        }
+
+        if (!mounted) return;
         setState(() {
           _pendingUpdate = ReleaseInfo(
-            version: AppVersion(
-              updateData['version'] as String,
-              updateData['buildNumber'] as int,
-            ),
-            downloadUrl: updateData['downloadUrl'] as String,
-            releaseUrl: updateData['releaseUrl'] as String,
-            changelog: updateData['changelog'] as String,
+            version: AppVersion(version, buildNumber),
+            downloadUrl: downloadUrl,
+            releaseUrl: releaseUrl,
+            changelog: changelog,
             fileSizeBytes: updateData['fileSizeBytes'] as int?,
           );
         });
       }
     } catch (e) {
       debugPrint('Erro ao carregar atualização pendente: $e');
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove(_pendingUpdateKey);
+      } catch (_) {}
     }
   }
 
@@ -241,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen>
         'fileSizeBytes': releaseInfo.fileSizeBytes,
       };
       await prefs.setString(_pendingUpdateKey, json.encode(updateData));
+      if (!mounted) return;
       setState(() => _pendingUpdate = releaseInfo);
     } catch (e) {
       debugPrint('Erro ao salvar atualização pendente: $e');
@@ -253,6 +273,7 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_pendingUpdateKey);
+      if (!mounted) return;
       setState(() => _pendingUpdate = null);
     } catch (e) {
       debugPrint('Erro ao limpar atualização pendente: $e');
@@ -342,7 +363,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _showDownloadProgressDialog(ReleaseInfo releaseInfo) async {
-    await showDialog(
+    final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => _DownloadProgressDialog(
@@ -351,6 +372,10 @@ class _HomeScreenState extends State<HomeScreen>
         onDownloadComplete: _clearPendingUpdate,
       ),
     );
+
+    if (result == false) {
+      await _clearPendingUpdate();
+    }
   }
 
   // Hot Reload triggers reassemble
@@ -1189,10 +1214,9 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
         _isDownloading = false;
       });
 
-      // Aguardar um momento antes de fechar
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).pop(true);
     } catch (e) {
       debugPrint('Erro ao atualizar: $e');
       if (!mounted) return;
@@ -1261,7 +1285,7 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Fechar'),
           ),
         ],
