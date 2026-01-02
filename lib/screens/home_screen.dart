@@ -9,7 +9,6 @@ import '../services/auto_update_service.dart';
 import '../services/tremor_service.dart';
 import '../utils/web_permission/web_permission.dart';
 import '../utils/web_sensor_support/web_sensor_support.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class HomeScreen extends StatefulWidget {
   final TremorService? tremorServiceOverride;
