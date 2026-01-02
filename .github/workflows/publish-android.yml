@@ -135,6 +135,9 @@ jobs:
         with:
           path: /usr/local/lib/android/sdk/ndk/28.2.13676358
           key: ${{ runner.os }}-ndk-28.2.13676358
+          restore-keys: |
+            ${{ runner.os }}-ndk-28.2.13676358
+            ${{ runner.os }}-ndk-
 
       # - name: Build Android App Bundle
       #   run: >
