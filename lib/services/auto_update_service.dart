@@ -72,6 +72,11 @@ class AutoUpdateService {
   static const MethodChannel _channel =
       MethodChannel('br.com.lucasliet.blueguava/update');
 
+  static const bool isWanderboy = bool.fromEnvironment(
+    'WANDERBOY',
+    defaultValue: false,
+  );
+
   final http.Client _httpClient;
   final Dio _dio;
   AppVersion? _currentVersion;
@@ -149,6 +154,11 @@ class AutoUpdateService {
     try {
       if (kIsWeb) {
         debugPrint('AutoUpdate: Pulando verificação na plataforma web');
+        return null;
+      }
+
+      if (isWanderboy) {
+        debugPrint('AutoUpdate: Modo Wanderboy ativo, auto-update desabilitado');
         return null;
       }
 

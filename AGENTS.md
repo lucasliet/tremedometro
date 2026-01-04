@@ -56,6 +56,10 @@ Run `flutter analyze` before committing to ensure code quality.
 - **Naming**: `*_test.dart` suffix
 - **Structure**: Follow AAA pattern (Arrange/Act/Assert)
 - **Mocking**: Uses `mockito` with code generation
+- **⚠️ OBRIGATÓRIO**: Toda nova funcionalidade DEVE ter testes unitários correspondentes
+  - Novas features: Testes de comportamento principal e edge cases
+  - Bug fixes: Testes de regressão para evitar o bug no futuro
+  - Refactorings: Manter ou melhorar cobertura existente
 
 ### Running Tests
 
@@ -163,6 +167,7 @@ Sistema de atualização automática que verifica, baixa e instala novas versõe
 - **Android**: ✅ Download e instalação automática com detecção de arquitetura
 - **iOS**: ❌ Não implementado (App Store gerencia atualizações)
 - **Web**: ⏭️ Auto-update desabilitado (PWAs atualizam automaticamente pelo navegador)
+- **Wanderboy (Admin)**: ⏭️ Auto-update **DESABILITADO** no modo admin para manter controle total sobre atualizações durante calibração
 
 ### Permissões Android
 
@@ -209,8 +214,10 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 ### Build Flags
 - **Admin**: `flutter run --dart-define=WANDERBOY=true`
   - Habilita cálculo de média móvel e envio (POST) para API.
+  - **Desabilita auto-update** para manter controle total sobre atualizações.
 - **User (Padrão)**: `flutter run`
   - Apenas lê (GET) a referência da API.
+  - Auto-update habilitado (Android).
 
 ### Arquitetura de Calibração
 1. App inicia -> Tenta buscar referência na API (`keyvaluedb.deno.dev`).
@@ -236,4 +243,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-30*
+*Last Updated: 2026-01-04*
