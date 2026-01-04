@@ -105,6 +105,25 @@ void main() {
       service.dispose();
     });
 
+    test('isWanderboy deve ser false por padrão', () {
+      expect(AutoUpdateService.isWanderboy, false);
+    });
+
+    test('checkForUpdate deve retornar null quando isWanderboy=true', () async {
+      if (!AutoUpdateService.isWanderboy) {
+        return;
+      }
+
+      final result = await service.checkForUpdate();
+
+      expect(result, null);
+      verifyNever(mockClient.get(any));
+    },
+      skip: !AutoUpdateService.isWanderboy
+          ? 'Rode com: flutter test --dart-define=WANDERBOY=true'
+          : null,
+    );
+
     test('checkForUpdate deve retornar null quando não há nova versão', () async {
       final responseBody = json.encode({
         'tag_name': 'v1.0.0+1',
