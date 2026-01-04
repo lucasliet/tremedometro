@@ -163,6 +163,7 @@ Sistema de atualização automática que verifica, baixa e instala novas versõe
 - **Android**: ✅ Download e instalação automática com detecção de arquitetura
 - **iOS**: ❌ Não implementado (App Store gerencia atualizações)
 - **Web**: ⏭️ Auto-update desabilitado (PWAs atualizam automaticamente pelo navegador)
+- **Wanderboy (Admin)**: ⏭️ Auto-update **DESABILITADO** no modo admin para manter controle total sobre atualizações durante calibração
 
 ### Permissões Android
 
@@ -209,8 +210,10 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 ### Build Flags
 - **Admin**: `flutter run --dart-define=WANDERBOY=true`
   - Habilita cálculo de média móvel e envio (POST) para API.
+  - **Desabilita auto-update** para manter controle total sobre atualizações.
 - **User (Padrão)**: `flutter run`
   - Apenas lê (GET) a referência da API.
+  - Auto-update habilitado (Android).
 
 ### Arquitetura de Calibração
 1. App inicia -> Tenta buscar referência na API (`keyvaluedb.deno.dev`).
