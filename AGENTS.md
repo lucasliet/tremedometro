@@ -56,6 +56,10 @@ Run `flutter analyze` before committing to ensure code quality.
 - **Naming**: `*_test.dart` suffix
 - **Structure**: Follow AAA pattern (Arrange/Act/Assert)
 - **Mocking**: Uses `mockito` with code generation
+- **⚠️ OBRIGATÓRIO**: Toda nova funcionalidade DEVE ter testes unitários correspondentes
+  - Novas features: Testes de comportamento principal e edge cases
+  - Bug fixes: Testes de regressão para evitar o bug no futuro
+  - Refactorings: Manter ou melhorar cobertura existente
 
 ### Running Tests
 
@@ -239,4 +243,4 @@ Sistema para definir a referência da escala "BlueGuava 1" dinamicamente baseada
 - Isso confirma para o usuário (e para o Admin) que a calibração foi recebida com sucesso.
 
 ---
-*Last Updated: 2025-12-30*
+*Last Updated: 2026-01-04*
