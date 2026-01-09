@@ -1,8 +1,5 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/measurement.dart';
 import '../services/auto_update_service.dart';
@@ -21,9 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  // Flag de Debug para mostrar GuavaPrime (Raw Score)
   static const bool _showPrime = bool.fromEnvironment('PRIME');
-  static const String _pendingUpdateKey = 'pending_update_info';
 
   late TremorService _tremorService;
   late AutoUpdateService _autoUpdateService;
@@ -34,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool _isRunning = false;
   bool _needsPermission = false;
   WebSensorStatus? _webSensorStatus;
-  ReleaseInfo? _pendingUpdate;
+  AppUpdateInfo? _pendingUpdate;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -48,16 +43,15 @@ class _HomeScreenState extends State<HomeScreen>
     _loadMeasurements();
     _setupListeners();
     _setupAnimations();
-    _loadPendingUpdate();
     _checkForUpdates();
   }
 
   Future<void> _checkForUpdates() async {
     if (kIsWeb) return;
 
-    final releaseInfo = await _autoUpdateService.checkForUpdate();
-    if (releaseInfo != null && mounted) {
-      _showUpdateDialog(releaseInfo);
+    final updateInfo = await _autoUpdateService.checkForUpdate();
+    if (updateInfo != null && mounted) {
+      _showUpdateDialog(updateInfo);
     }
   }
 
@@ -199,84 +193,9 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() => _measurements = measurements);
   }
 
-  Future<void> _loadPendingUpdate() async {
-    if (kIsWeb) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final updateJson = prefs.getString(_pendingUpdateKey);
-
-      if (updateJson != null) {
-        final updateData = json.decode(updateJson) as Map<String, dynamic>;
-
-        final version = updateData['version'];
-        final buildNumber = updateData['buildNumber'];
-        final downloadUrl = updateData['downloadUrl'];
-        final releaseUrl = updateData['releaseUrl'];
-        final changelog = updateData['changelog'];
-
-        if (version is! String ||
-            buildNumber is! int ||
-            downloadUrl is! String ||
-            releaseUrl is! String ||
-            changelog is! String) {
-          debugPrint('Dados de atualização inválidos, limpando...');
-          await prefs.remove(_pendingUpdateKey);
-          return;
-        }
-
-        if (!mounted) return;
-        setState(() {
-          _pendingUpdate = ReleaseInfo(
-            version: AppVersion(version, buildNumber),
-            downloadUrl: downloadUrl,
-            releaseUrl: releaseUrl,
-            changelog: changelog,
-            fileSizeBytes: updateData['fileSizeBytes'] as int?,
-          );
-        });
-      }
-    } catch (e) {
-      debugPrint('Erro ao carregar atualização pendente: $e');
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove(_pendingUpdateKey);
-      } catch (_) {}
-    }
-  }
-
-  Future<void> _savePendingUpdate(ReleaseInfo releaseInfo) async {
-    if (kIsWeb) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final updateData = {
-        'version': releaseInfo.version.version,
-        'buildNumber': releaseInfo.version.buildNumber,
-        'downloadUrl': releaseInfo.downloadUrl,
-        'releaseUrl': releaseInfo.releaseUrl,
-        'changelog': releaseInfo.changelog,
-        'fileSizeBytes': releaseInfo.fileSizeBytes,
-      };
-      await prefs.setString(_pendingUpdateKey, json.encode(updateData));
-      if (!mounted) return;
-      setState(() => _pendingUpdate = releaseInfo);
-    } catch (e) {
-      debugPrint('Erro ao salvar atualização pendente: $e');
-    }
-  }
-
   Future<void> _clearPendingUpdate() async {
     if (kIsWeb) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_pendingUpdateKey);
-      if (!mounted) return;
-      setState(() => _pendingUpdate = null);
-    } catch (e) {
-      debugPrint('Erro ao limpar atualização pendente: $e');
-    }
+    setState(() => _pendingUpdate = null);
   }
 
   @override
@@ -287,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen>
     super.dispose();
   }
 
-  void _showUpdateDialog(ReleaseInfo releaseInfo) {
+  void _showUpdateDialog(AppUpdateInfo updateInfo) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -309,7 +228,7 @@ class _HomeScreenState extends State<HomeScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Nova versão: ${releaseInfo.version}',
+              'Nova versão: ${updateInfo.version}',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -329,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen>
               constraints: const BoxConstraints(maxHeight: 200),
               child: SingleChildScrollView(
                 child: Text(
-                  releaseInfo.changelog,
+                  updateInfo.changelog,
                   style: const TextStyle(color: Colors.white60, fontSize: 14),
                 ),
               ),
@@ -338,8 +257,7 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () async {
-              await _savePendingUpdate(releaseInfo);
+            onPressed: () {
               if (!mounted) return;
               Navigator.pop(context);
             },
@@ -348,7 +266,7 @@ class _HomeScreenState extends State<HomeScreen>
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
-              await _showDownloadProgressDialog(releaseInfo);
+              await _showDownloadProgressDialog(updateInfo);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF6B4EFF),
@@ -361,12 +279,12 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Future<void> _showDownloadProgressDialog(ReleaseInfo releaseInfo) async {
+  Future<void> _showDownloadProgressDialog(AppUpdateInfo updateInfo) async {
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => _DownloadProgressDialog(
-        releaseInfo: releaseInfo,
+        updateInfo: updateInfo,
         autoUpdateService: _autoUpdateService,
         onDownloadComplete: _clearPendingUpdate,
       ),
@@ -383,10 +301,10 @@ class _HomeScreenState extends State<HomeScreen>
     super.reassemble();
     _tremorService.refreshReference();
   }
-  
+
   Widget? _buildSensorWarning() {
     if (!kIsWeb || _webSensorStatus == null) return null;
-    
+
     switch (_webSensorStatus!) {
       case WebSensorStatus.requiresHttps:
         return Container(
@@ -446,7 +364,9 @@ class _HomeScreenState extends State<HomeScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isIOS ? 'iOS Safari Não Suportado' : 'Sensor Indisponível',
+                      isIOS
+                          ? 'iOS Safari Não Suportado'
+                          : 'Sensor Indisponível',
                       style: const TextStyle(
                         color: Colors.orange,
                         fontWeight: FontWeight.bold,
@@ -603,10 +523,11 @@ class _HomeScreenState extends State<HomeScreen>
                     children: [
                       Text(
                         'Tremedômetro',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                       ),
                       Text(
                         'Medidor de Tremor',
@@ -639,7 +560,10 @@ class _HomeScreenState extends State<HomeScreen>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6B4EFF),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -799,11 +723,12 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildMeasureButton() {
-    final bool isSensorUnavailable = kIsWeb &&
+    final bool isSensorUnavailable =
+        kIsWeb &&
         (_webSensorStatus == WebSensorStatus.notSupported ||
             _webSensorStatus == WebSensorStatus.requiresHttps ||
             _webSensorStatus == WebSensorStatus.permissionDenied);
-    
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: SizedBox(
@@ -1074,11 +999,7 @@ class _HomeScreenState extends State<HomeScreen>
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.person,
-                          color: Color(0xFF2196F3),
-                          size: 20,
-                        ),
+                        Icon(Icons.person, color: Color(0xFF2196F3), size: 20),
                         SizedBox(width: 8),
                         Text(
                           'Referência',
@@ -1168,12 +1089,12 @@ class _HomeScreenState extends State<HomeScreen>
 }
 
 class _DownloadProgressDialog extends StatefulWidget {
-  final ReleaseInfo releaseInfo;
+  final AppUpdateInfo updateInfo;
   final AutoUpdateService autoUpdateService;
   final Future<void> Function() onDownloadComplete;
 
   const _DownloadProgressDialog({
-    required this.releaseInfo,
+    required this.updateInfo,
     required this.autoUpdateService,
     required this.onDownloadComplete,
   });
@@ -1194,36 +1115,23 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     _startDownload();
   }
 
-  Future<void> _startDownload() async {
-    try {
-      await widget.autoUpdateService.downloadAndInstallUpdate(
-        widget.releaseInfo,
-        onProgress: (progress) {
-          if (!mounted || !_isDownloading) return;
-          setState(() {
-            _downloadProgress = progress;
-          });
-        },
-      );
-
-      await widget.onDownloadComplete();
-
-      if (!mounted) return;
-      setState(() {
-        _isDownloading = false;
-      });
-
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      Navigator.of(context).pop(true);
-    } catch (e) {
-      debugPrint('Erro ao atualizar: $e');
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = e.toString();
-        _isDownloading = false;
-      });
-    }
+  void _startDownload() {
+    widget.autoUpdateService.startUpdate(
+      onProgress: (progress) {
+        if (!mounted || !_isDownloading) return;
+        setState(() {
+          _downloadProgress = progress / 100;
+        });
+      },
+      onError: (error) {
+        debugPrint('Erro ao atualizar: $error');
+        if (!mounted) return;
+        setState(() {
+          _errorMessage = error;
+          _isDownloading = false;
+        });
+      },
+    );
   }
 
   @override
@@ -1231,17 +1139,12 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     if (!_isDownloading && _errorMessage == null) {
       return AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
             Icon(Icons.check_circle, color: Color(0xFF4CAF50)),
             SizedBox(width: 12),
-            Text(
-              'Download Concluído',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('Download Concluído', style: TextStyle(color: Colors.white)),
           ],
         ),
         content: const Column(
@@ -1259,27 +1162,19 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     if (_errorMessage != null) {
       return AlertDialog(
         backgroundColor: const Color(0xFF1a1a2e),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
             Icon(Icons.error, color: Color(0xFFF44336)),
             SizedBox(width: 12),
-            Text(
-              'Erro ao Atualizar',
-              style: TextStyle(color: Colors.white),
-            ),
+            Text('Erro ao Atualizar', style: TextStyle(color: Colors.white)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              _errorMessage!,
-              style: const TextStyle(color: Colors.white70),
-            ),
+            Text(_errorMessage!, style: const TextStyle(color: Colors.white70)),
           ],
         ),
         actions: [
@@ -1293,17 +1188,12 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
 
     return AlertDialog(
       backgroundColor: const Color(0xFF1a1a2e),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Row(
         children: [
           Icon(Icons.download, color: Color(0xFF6B4EFF)),
           SizedBox(width: 12),
-          Text(
-            'Baixando Atualização',
-            style: TextStyle(color: Colors.white),
-          ),
+          Text('Baixando Atualização', style: TextStyle(color: Colors.white)),
         ],
       ),
       content: Column(
@@ -1311,19 +1201,14 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Versão ${widget.releaseInfo.version}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-            ),
+            'Versão ${widget.updateInfo.version}',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 20),
           LinearProgressIndicator(
             value: _downloadProgress,
             backgroundColor: Colors.white.withValues(alpha: 0.1),
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              Color(0xFF6B4EFF),
-            ),
+            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF6B4EFF)),
             minHeight: 8,
             borderRadius: BorderRadius.circular(4),
           ),
