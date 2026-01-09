@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<paths>
-    <files-path name="ota_update" path="ota_update/" />
-    <external-path name="external_files" path="." />
-    <cache-path name="cache" path="." />
-    <external-cache-path name="external_cache" path="." />
-</paths>
